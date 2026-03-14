@@ -12,7 +12,8 @@ function getWelcomeData() {
   var startRaw = document.getElementById('wl-start').value;
   var startEn  = startRaw ? new Date(startRaw).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}) : '1st of the month';
   var startAr  = startRaw ? new Date(startRaw).toLocaleDateString('ar-EG',{day:'numeric',month:'long',year:'numeric'}) : '1 من الشهر';
-  return {name, room, apt, rent, dep, building, persons, phone, startEn, startAr};
+  var idNum = document.getElementById('wl-id') ? document.getElementById('wl-id').value || '' : '';
+  return {name, room, apt, rent, dep, building, persons, phone, startEn, startAr, idNum};
 }
 
 async function loadMovesList(type) {
@@ -138,7 +139,7 @@ async function deleteMoveEntry(id, type) {
 
 function showWelcomeLetter() {
   var d = getWelcomeData();
-  var html = buildWelcomeLetter(d.name, d.room, d.apt, d.rent, d.dep, d.building, d.startEn, d.startAr, d.persons);
+  var html = buildWelcomeLetter(d.name, d.room, d.apt, d.rent, d.dep, d.building, d.startEn, d.startAr, d.persons, d.idNum);
   var preview = document.getElementById('welcome-preview');
   if(preview) {
     preview.innerHTML = '<div style="background:#fff;border-radius:12px;padding:20px;color:#111;font-size:.78rem;line-height:1.7;max-height:60vh;overflow-y:auto;border:1px solid var(--border)">' + html + '</div>';
@@ -150,7 +151,7 @@ function showWelcomeLetter() {
 
 function printWelcomeLetter() {
   var d = getWelcomeData();
-  window._welcomeHTML = buildWelcomeLetter(d.name, d.room, d.apt, d.rent, d.dep, d.building, d.startEn, d.startAr, d.persons);
+  window._welcomeHTML = buildWelcomeLetter(d.name, d.room, d.apt, d.rent, d.dep, d.building, d.startEn, d.startAr, d.persons, d.idNum);
   var win = window.open('','_blank');
   if(!win) { toast('يرجى السماح بالنوافذ المنبثقة','err'); return; }
   var printCSS = [
@@ -171,233 +172,116 @@ function printWelcomeLetter() {
   win.document.close();
 }
 
-function buildWelcomeLetter(name, room, apt, rent, dep, building, startEn, startAr, persons) {
+function buildWelcomeLetter(name, room, apt, rent, dep, building, startEn, startAr, persons, idNum) {
+  idNum = idNum || '';
   persons = persons || '1';
   var personsTextEn = persons == '1' ? 'one person only' : persons + ' persons only';
   var personsTextAr = persons == '1' ? 'شخص واحد فقط' : persons + ' أشخاص فقط';
 
-  return `
-  <div style="font-family:Arial,sans-serif;max-width:900px;margin:0 auto">
+  var idRowHtml = idNum
+    ? '<tr>'
+      + '<td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;border:1px solid #ddd">ID / Passport</td>'
+      + '<td style="padding:8px 12px;font-size:12px;border:1px solid #ddd">' + idNum + '</td>'
+      + '<td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;border:1px solid #ddd;direction:rtl;text-align:right">رقم الهوية / الجواز</td>'
+      + '<td style="padding:8px 12px;font-size:12px;border:1px solid #ddd;direction:rtl;text-align:right">' + idNum + '</td>'
+      + '</tr>'
+    : '';
 
-    <!-- ══ BILINGUAL HEADER ══ -->
-    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;border:2px solid #1a3a6e">
-      <tr>
-        <!-- English left -->
-        <td style="width:50%;padding:12px 16px;vertical-align:top;border-right:1px solid #ccc">
-          <div style="font-size:11px;color:#555">CONTRACT PERIOD :-</div>
-          <div style="font-weight:700;font-size:13px;color:#1a3a6e">FROM ${startEn} ONWARDS</div>
-          <div style="margin-top:8px;font-size:11px"><strong>Tel. : 0585586869</strong></div>
-        </td>
-        <!-- Arabic right -->
-        <td style="width:50%;padding:12px 16px;vertical-align:top;direction:rtl;text-align:right">
-          <div style="font-size:11px;color:#555">بداية العقد :-</div>
-          <div style="font-weight:700;font-size:13px;color:#1a3a6e">من ${startAr} فصاعداً</div>
-          <div style="margin-top:8px;font-size:11px;direction:rtl"><strong>هاتف: 0585586869</strong></div>
-        </td>
-      </tr>
-    </table>
+  var idHeaderEn  = idNum ? '<div style="margin-top:6px;font-size:11px">ID: <strong>' + idNum + '</strong></div>' : '';
+  var idHeaderAr  = idNum ? '<div style="margin-top:6px;font-size:11px;direction:rtl">رقم الهوية: <strong>' + idNum + '</strong></div>' : '';
 
-    <!-- ══ SUBJECT BILINGUAL ══ -->
-    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;border:2px solid #1a3a6e">
-      <tr style="background:#f0f4ff">
-        <td style="padding:8px 16px;font-weight:800;font-size:13px;color:#1a3a6e;border-right:1px solid #ccc;width:50%">
-          SUBJECT OF TENANCY:
-        </td>
-        <td style="padding:8px 16px;font-weight:800;font-size:13px;color:#1a3a6e;direction:rtl;text-align:right">
-          موضوع الإيجار:
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:10px 16px;vertical-align:top;border-right:1px solid #ccc;font-size:12px">
-          <strong>Partition No. (${room})</strong>, ${building} Building, Apartment ${apt}<br>
-          Monthly Rent: <strong>${rent} AED</strong> for ${personsTextEn}<br>
-          Security Deposit: <strong>${dep} AED</strong> (Refundable)
-        </td>
-        <td style="padding:10px 16px;vertical-align:top;direction:rtl;text-align:right;font-size:12px">
-          <strong>بارتشن رقم (${room})</strong>، مبنى ${building}، شقة ${apt}<br>
-          الإيجار الشهري: <strong>${rent} درهم</strong> لـ ${personsTextAr}<br>
-          التأمين: <strong>${dep} درهم</strong> (قابل للاسترداد)
-        </td>
-      </tr>
-    </table>
+  return '<div style="font-family:Arial,sans-serif;max-width:900px;margin:0 auto">'
 
-    <!-- ══ TENANT INFO ══ -->
-    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;border:2px solid #1a3a6e">
-      <tr style="background:#f0f4ff">
-        <td colspan="4" style="padding:8px 16px;font-weight:800;font-size:13px;color:#1a3a6e;text-align:center">
-          TENANT DETAILS &nbsp;|&nbsp; بيانات المستأجر
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;width:20%;border:1px solid #ddd">Tenant Name</td>
-        <td style="padding:8px 12px;font-size:12px;border:1px solid #ddd;width:30%">${name}</td>
-        <td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;width:20%;border:1px solid #ddd;direction:rtl;text-align:right">اسم المستأجر</td>
-        <td style="padding:8px 12px;font-size:12px;border:1px solid #ddd;direction:rtl;text-align:right">${name}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;border:1px solid #ddd">Amount Received</td>
-        <td style="padding:8px 12px;font-size:12px;border:1px solid #ddd">${dep} AED (Security Deposit)</td>
-        <td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;border:1px solid #ddd;direction:rtl;text-align:right">المبلغ المستلم</td>
-        <td style="padding:8px 12px;font-size:12px;border:1px solid #ddd;direction:rtl;text-align:right">${dep} درهم (تأمين)</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;border:1px solid #ddd">No. of Persons</td>
-        <td style="padding:8px 12px;font-size:12px;border:1px solid #ddd">${persons}</td>
-        <td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;border:1px solid #ddd;direction:rtl;text-align:right">عدد الأشخاص</td>
-        <td style="padding:8px 12px;font-size:12px;border:1px solid #ddd;direction:rtl;text-align:right">${persons}</td>
-      </tr>
-    </table>
+    // ── HEADER ──
+    + '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;border:2px solid #1a3a6e">'
+    + '<tr>'
+    + '<td style="width:50%;padding:12px 16px;vertical-align:top;border-right:1px solid #ccc">'
+    + '<div style="font-size:11px;color:#555">CONTRACT PERIOD :-</div>'
+    + '<div style="font-weight:700;font-size:13px;color:#1a3a6e">FROM ' + startEn + ' ONWARDS</div>'
+    + idHeaderEn
+    + '</td>'
+    + '<td style="width:50%;padding:12px 16px;vertical-align:top;direction:rtl;text-align:right">'
+    + '<div style="font-size:11px;color:#555">بداية العقد :-</div>'
+    + '<div style="font-weight:700;font-size:13px;color:#1a3a6e">من ' + startAr + ' فصاعداً</div>'
+    + idHeaderAr
+    + '</td>'
+    + '</tr>'
+    + '</table>'
 
-    <!-- ══ CONDITIONS BILINGUAL ══ -->
-    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;border:2px solid #1a3a6e">
-      <tr style="background:#f0f4ff">
-        <td style="padding:8px 16px;font-weight:800;font-size:13px;color:#1a3a6e;border-right:1px solid #ccc;width:50%">CONDITIONS:</td>
-        <td style="padding:8px 16px;font-weight:800;font-size:13px;color:#1a3a6e;direction:rtl;text-align:right">الشروط:</td>
-      </tr>
+    // ── SUBJECT ──
+    + '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;border:2px solid #1a3a6e">'
+    + '<tr style="background:#f0f4ff">'
+    + '<td style="padding:8px 16px;font-weight:800;font-size:13px;color:#1a3a6e;border-right:1px solid #ccc;width:50%">SUBJECT OF TENANCY:</td>'
+    + '<td style="padding:8px 16px;font-weight:800;font-size:13px;color:#1a3a6e;direction:rtl;text-align:right">موضوع الإيجار:</td>'
+    + '</tr>'
+    + '<tr>'
+    + '<td style="padding:10px 16px;vertical-align:top;border-right:1px solid #ccc;font-size:12px">'
+    + '<strong>Partition No. (' + room + ')</strong>, ' + building + ' Building, Apartment ' + apt + '<br>'
+    + 'Monthly Rent: <strong>' + rent + ' AED</strong> for ' + personsTextEn + '<br>'
+    + 'Security Deposit: <strong>' + dep + ' AED</strong> (Refundable)'
+    + '</td>'
+    + '<td style="padding:10px 16px;vertical-align:top;direction:rtl;text-align:right;font-size:12px">'
+    + '<strong>بارتشن رقم (' + room + ')</strong>، مبنى ' + building + '، شقة ' + apt + '<br>'
+    + 'الإيجار الشهري: <strong>' + rent + ' درهم</strong> لـ ' + personsTextAr + '<br>'
+    + 'التأمين: <strong>' + dep + ' درهم</strong> (قابل للاسترداد)'
+    + '</td>'
+    + '</tr>'
+    + '</table>'
 
-      <!-- Row 1 -->
-      <tr style="vertical-align:top">
-        <td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px">
-          <strong>1. Security Deposit Policy</strong><br>
-          • Amount: <strong>${dep} AED</strong> (Refundable)<br>
-          • Notice of departure must be given <strong>15 days in advance</strong> (before the 16th).<br>
-          • If notice is after the 16th, <strong>full month's rent</strong> will be charged.<br>
-          • Partition must be handed over with <strong>no damages</strong>.<br>
-          • Deposit is <strong>non-refundable</strong> if terms are not met.
-        </td>
-        <td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px">
-          <strong>1. سياسة التأمين</strong><br>
-          • المبلغ: <strong>${dep} درهم</strong> (قابل للاسترداد)<br>
-          • يجب الإبلاغ عن المغادرة <strong>قبل 15 يوماً</strong> (أي قبل اليوم 16).<br>
-          • إذا كان الإبلاغ بعد اليوم 16 سيُحتسب <strong>إيجار الشهر كاملاً</strong>.<br>
-          • تسليم البارتشن <strong>بدون أي أضرار</strong>.<br>
-          • التأمين <strong>غير مسترد</strong> إذا لم تُلتزم الشروط.
-        </td>
-      </tr>
+    // ── TENANT INFO ──
+    + '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;border:2px solid #1a3a6e">'
+    + '<tr style="background:#f0f4ff">'
+    + '<td colspan="4" style="padding:8px 16px;font-weight:800;font-size:13px;color:#1a3a6e;text-align:center">TENANT DETAILS &nbsp;|&nbsp; بيانات المستأجر</td>'
+    + '</tr>'
+    + '<tr>'
+    + '<td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;width:20%;border:1px solid #ddd">Tenant Name</td>'
+    + '<td style="padding:8px 12px;font-size:12px;border:1px solid #ddd;width:30%">' + name + '</td>'
+    + '<td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;width:20%;border:1px solid #ddd;direction:rtl;text-align:right">اسم المستأجر</td>'
+    + '<td style="padding:8px 12px;font-size:12px;border:1px solid #ddd;direction:rtl;text-align:right">' + name + '</td>'
+    + '</tr>'
+    + '<tr>'
+    + '<td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;border:1px solid #ddd">Amount Received</td>'
+    + '<td style="padding:8px 12px;font-size:12px;border:1px solid #ddd">' + dep + ' AED (Security Deposit)</td>'
+    + '<td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;border:1px solid #ddd;direction:rtl;text-align:right">المبلغ المستلم</td>'
+    + '<td style="padding:8px 12px;font-size:12px;border:1px solid #ddd;direction:rtl;text-align:right">' + dep + ' درهم (تأمين)</td>'
+    + '</tr>'
+    + '<tr>'
+    + '<td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;border:1px solid #ddd">No. of Persons</td>'
+    + '<td style="padding:8px 12px;font-size:12px;border:1px solid #ddd">' + persons + '</td>'
+    + '<td style="padding:8px 12px;background:#f5f7fb;font-weight:700;font-size:11px;border:1px solid #ddd;direction:rtl;text-align:right">عدد الأشخاص</td>'
+    + '<td style="padding:8px 12px;font-size:12px;border:1px solid #ddd;direction:rtl;text-align:right">' + persons + '</td>'
+    + '</tr>'
+    + idRowHtml
+    + '</table>'
 
-      <!-- Row 2 -->
-      <tr style="vertical-align:top">
-        <td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px">
-          <strong>2. No Visits</strong><br>
-          The space is strictly for the tenant. Visitors are not allowed inside the partition or apartment.
-        </td>
-        <td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px">
-          <strong>2. عدم السماح بالزيارات</strong><br>
-          المكان مخصص للمستأجر فقط. لا يُسمح بأي زيارات داخل البارتشن أو الشقة.
-        </td>
-      </tr>
+    // ── CONDITIONS ──
+    + '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;border:2px solid #1a3a6e">'
+    + '<tr style="background:#f0f4ff">'
+    + '<td style="padding:8px 16px;font-weight:800;font-size:13px;color:#1a3a6e;border-right:1px solid #ccc;width:50%">CONDITIONS:</td>'
+    + '<td style="padding:8px 16px;font-weight:800;font-size:13px;color:#1a3a6e;direction:rtl;text-align:right">الشروط:</td>'
+    + '</tr>'
+    + '<tr style="vertical-align:top"><td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px"><strong>1. Security Deposit</strong><br>• Amount: <strong>' + dep + ' AED</strong> (Refundable)<br>• Notice of departure <strong>15 days in advance</strong> (before the 16th).<br>• After 16th: <strong>full month rent</strong> charged.<br>• Partition with <strong>no damages</strong>.<br>• Deposit <strong>non-refundable</strong> if terms not met.</td><td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px"><strong>1. سياسة التأمين</strong><br>• المبلغ: <strong>' + dep + ' درهم</strong> (قابل للاسترداد)<br>• الإبلاغ عن المغادرة <strong>قبل 15 يوماً</strong> (قبل اليوم 16).<br>• بعد 16: <strong>إيجار الشهر كاملاً</strong>.<br>• تسليم <strong>بدون أضرار</strong>.<br>• التأمين <strong>غير مسترد</strong> إذا لم تُلتزم الشروط.</td></tr>'
+    + '<tr style="vertical-align:top"><td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px"><strong>2. No Visits</strong><br>Space is strictly for the tenant. Visitors are not allowed.</td><td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px"><strong>2. عدم السماح بالزيارات</strong><br>المكان للمستأجر فقط. لا زيارات.</td></tr>'
+    + '<tr style="vertical-align:top"><td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px"><strong>3. Final Month</strong><br>Partition opened for booking and inspection in the last month.</td><td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px"><strong>3. الشهر الأخير</strong><br>يتم فتح البارتشن للحجز والمعاينة.</td></tr>'
+    + '<tr style="vertical-align:top"><td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px"><strong>4. Personal Belongings</strong><br>No shoes, bikes, scooters, cartons outside partition or in building.</td><td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px"><strong>4. الأغراض الشخصية</strong><br>يُمنع الأحذية، الدراجات، الكراتين خارج البارتشن أو في المبنى.</td></tr>'
+    + '<tr style="vertical-align:top"><td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px"><strong>5. Departure</strong><br>Hand over on last day of month before <strong>4:00 PM</strong>.</td><td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px"><strong>5. المغادرة</strong><br>التسليم في آخر يوم من الشهر قبل <strong>4 مساءً</strong>.</td></tr>'
+    + '<tr style="vertical-align:top"><td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px"><strong>6. Rent Payment</strong><br>Paid on the <strong>1st day</strong> of every month only.</td><td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px"><strong>6. الإيجار</strong><br>الدفع في <strong>اليوم الأول</strong> من كل شهر فقط.</td></tr>'
+    + '<tr style="vertical-align:top"><td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px"><strong>7. Kitchen & Fridge</strong><br>Designated space allocated. Keep clean — items on counter will be discarded.</td><td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px"><strong>7. المطبخ والثلاجة</strong><br>مكان مخصص. الحفاظ على النظافة وعدم ترك أشياء على السطح.</td></tr>'
+    + '<tr style="vertical-align:top"><td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px"><strong>8. Smoking</strong><br>Smoking and shisha prohibited inside apartment.</td><td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px"><strong>8. التدخين</strong><br>يمنع التدخين والشيشة داخل الشقة.</td></tr>'
+    + '<tr style="vertical-align:top"><td style="padding:10px 16px;border-right:1px solid #ccc;font-size:11px"><strong>9. Public Areas</strong><br>No sitting or smoking in public areas of the building.</td><td style="padding:10px 16px;direction:rtl;text-align:right;font-size:11px"><strong>9. المناطق العامة</strong><br>يمنع الجلوس أو التدخين في المناطق العامة.</td></tr>'
+    + '</table>'
 
-      <!-- Row 3 -->
-      <tr style="vertical-align:top">
-        <td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px">
-          <strong>3. Final Month Policy</strong><br>
-          During the last month, the partition will be opened for booking and inspection whether or not the tenant is present.
-        </td>
-        <td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px">
-          <strong>3. سياسة الشهر الأخير</strong><br>
-          خلال الشهر الأخير يتم فتح البارتشن للحجز والمعاينة سواء كان المستأجر موجوداً أم لا.
-        </td>
-      </tr>
+    // ── SIGNATURES ──
+    + '<table style="width:100%;border-collapse:collapse;border:2px solid #1a3a6e;margin-top:16px">'
+    + '<tr style="background:#f0f4ff"><td colspan="2" style="padding:8px 16px;font-weight:800;font-size:12px;color:#1a3a6e;text-align:center">SIGNATURES &nbsp;|&nbsp; التوقيعات</td></tr>'
+    + '<tr>'
+    + '<td style="padding:20px 16px;border-right:1px solid #ccc;font-size:12px"><strong>Tenant Signature:</strong><br><br>___________________________<br><span style="font-size:10px;color:#888">Date: _______________</span></td>'
+    + '<td style="padding:20px 16px;direction:rtl;text-align:right;font-size:12px"><strong>توقيع المستأجر:</strong><br><br>___________________________<br><span style="font-size:10px;color:#888">التاريخ: _______________</span></td>'
+    + '</tr>'
+    + '</table>'
 
-      <!-- Row 4 -->
-      <tr style="vertical-align:top">
-        <td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px">
-          <strong>4. Personal Belongings</strong><br>
-          No personal items (shoes, bicycles, scooters, cartons, etc.) are allowed outside the partition, inside the apartment, or in the building.
-        </td>
-        <td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px">
-          <strong>4. الأغراض الشخصية</strong><br>
-          يُمنع وضع أي أغراض شخصية (أحذية، دراجات، سكوترات، كراتين...) خارج البارتشن أو داخل الشقة أو في المبنى.
-        </td>
-      </tr>
-
-      <!-- Row 5 -->
-      <tr style="vertical-align:top">
-        <td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px">
-          <strong>5. Departure</strong><br>
-          The partition must be handed over on the last day of the month (28th/29th/30th/31st) before <strong>4:00 PM</strong>.
-        </td>
-        <td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px">
-          <strong>5. قواعد المغادرة</strong><br>
-          تسليم البارتشن في آخر يوم من الشهر قبل الساعة <strong>4 مساءً</strong>.
-        </td>
-      </tr>
-
-      <!-- Row 6 -->
-      <tr style="vertical-align:top">
-        <td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px">
-          <strong>6. Rent Payment</strong><br>
-          Rent is to be paid on the <strong>1st day</strong> of every month only.
-        </td>
-        <td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px">
-          <strong>6. دفع الإيجار</strong><br>
-          يتم دفع الإيجار في <strong>اليوم الأول</strong> من كل شهر فقط.
-        </td>
-      </tr>
-
-      <!-- Row 7 -->
-      <tr style="vertical-align:top">
-        <td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px">
-          <strong>7. Kitchen & Fridge</strong><br>
-          A designated space will be allocated. Maintain cleanliness — items left on the countertop will be discarded by the cleaner.
-        </td>
-        <td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px">
-          <strong>7. المطبخ والثلاجة</strong><br>
-          سيتم تخصيص مكان لك. يجب الحفاظ على النظافة وعدم ترك أي شيء على سطح المطبخ.
-        </td>
-      </tr>
-
-      <!-- Row 8 -->
-      <tr style="vertical-align:top">
-        <td style="padding:10px 16px;border-right:1px solid #ccc;border-bottom:1px solid #eee;font-size:11px">
-          <strong>8. Smoking Policy</strong><br>
-          Smoking and shisha are strictly prohibited inside the apartment.
-        </td>
-        <td style="padding:10px 16px;direction:rtl;text-align:right;border-bottom:1px solid #eee;font-size:11px">
-          <strong>8. التدخين</strong><br>
-          يمنع التدخين والشيشة داخل الشقة.
-        </td>
-      </tr>
-
-      <!-- Row 9 -->
-      <tr style="vertical-align:top">
-        <td style="padding:10px 16px;border-right:1px solid #ccc;font-size:11px">
-          <strong>9. Public Areas</strong><br>
-          Sitting or smoking in the public areas of the building is strictly forbidden.
-        </td>
-        <td style="padding:10px 16px;direction:rtl;text-align:right;font-size:11px">
-          <strong>9. المناطق العامة</strong><br>
-          يمنع الجلوس أو التدخين في المناطق العامة للمبنى.
-        </td>
-      </tr>
-    </table>
-
-    <!-- ══ SIGNATURES ══ -->
-    <table style="width:100%;border-collapse:collapse;border:2px solid #1a3a6e;margin-top:16px">
-      <tr style="background:#f0f4ff">
-        <td colspan="2" style="padding:8px 16px;font-weight:800;font-size:12px;color:#1a3a6e;text-align:center">
-          SIGNATURES &nbsp;|&nbsp; التوقيعات
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:20px 16px;border-right:1px solid #ccc;font-size:12px">
-          <strong>Tenant Signature:</strong><br><br>
-          ___________________________<br>
-          <span style="font-size:10px;color:#888">Date: _______________</span>
-        </td>
-        <td style="padding:20px 16px;direction:rtl;text-align:right;font-size:12px">
-          <strong>توقيع المستأجر:</strong><br><br>
-          ___________________________<br>
-          <span style="font-size:10px;color:#888">التاريخ: _______________</span>
-        </td>
-      </tr>
-    </table>
-
-    <p style="margin-top:12px;font-size:10px;color:#888;text-align:center">
-      By signing above, the tenant agrees to all terms and conditions stated in this contract.<br>
-      بالتوقيع أعلاه يوافق المستأجر على جميع الشروط والأحكام المذكورة في هذا العقد.
-    </p>
-  </div>`;
+    + '<p style="margin-top:12px;font-size:10px;color:#888;text-align:center">By signing above, the tenant agrees to all terms stated in this contract.<br>بالتوقيع أعلاه يوافق المستأجر على جميع الشروط المذكورة في هذا العقد.</p>'
+    + '</div>';
 }
 
 function sendWelcomeWA() {
