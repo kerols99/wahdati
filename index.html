@@ -16,7 +16,6 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
 <!-- ══ TOAST ══ -->
 <div id="toast"></div>
 
@@ -341,6 +340,82 @@
       <button class="btn br" onclick="doLogout()" id="btn-logout">🚪 تسجيل الخروج</button>
     </div>
 
+  
+
+    <div class="panel" id="panel-moves">
+    <div style="padding:16px">
+        <div style="font-size:1.1rem;font-weight:800;margin-bottom:16px">🚪 تنقلات الشهر</div>
+        
+        <!-- Tabs -->
+        <div class="tabs" style="margin-bottom:16px">
+          <button class="tab active" onclick="switchTab('tDepart',this)">📤 مغادرون</button>
+          <button class="tab" onclick="switchTab('tArrive',this)">📥 حجوزات جديدة</button>
+          <button class="tab" onclick="switchTab('tWelcome',this)">📄 رسالة ترحيب</button>
+        </div>
+
+        <!-- DEPARTURES TAB -->
+        <div class="tpanel active" id="tDepart">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:.82rem;color:var(--muted)">المغادرون أول الشهر القادم</span>
+            <button onclick="addMoveEntry('depart')" class="btn bp" style="padding:8px 14px;font-size:.8rem">+ إضافة</button>
+          </div>
+          <div id="depart-list"></div>
+        </div>
+
+        <!-- ARRIVALS TAB -->
+        <div class="tpanel" id="tArrive">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:.82rem;color:var(--muted)">الحجوزات الجديدة أول الشهر القادم</span>
+            <button onclick="addMoveEntry('arrive')" class="btn bp" style="padding:8px 14px;font-size:.8rem">+ إضافة</button>
+          </div>
+          <div id="arrive-list"></div>
+        </div>
+
+        <!-- WELCOME LETTER TAB -->
+        <div class="tpanel" id="tWelcome">
+          <!-- Buttons STICKY at top -->
+          <div style="display:flex;gap:8px;margin-bottom:14px;position:sticky;top:0;z-index:10;background:var(--bg);padding:8px 0 4px;flex-wrap:wrap">
+            <button class="btn bp" onclick="showWelcomeLetter()" style="flex:2;min-width:120px;font-size:.9rem">👁️ معاينة</button>
+            <button class="btn bg" onclick="printWelcomeLetter()" style="flex:1;min-width:80px;font-size:.9rem">🖨️ PDF</button>
+            <button onclick="sendWelcomeWA()" style="flex:1;min-width:80px;padding:12px 8px;background:#25D366;border:none;border-radius:12px;color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit">💬 واتساب</button>
+          </div>
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:12px">أدخل البيانات ثم اضغط معاينة أو PDF مباشرة</div>
+          <div class="row2" style="margin-bottom:10px">
+            <div class="fld"><label>اسم المستأجر</label><input class="inp" id="wl-name" placeholder="Jerome"></div>
+            <div class="fld"><label>رقم البارتشن</label><input class="inp" id="wl-room" type="number" placeholder="1"></div>
+          </div>
+          <div class="row2" style="margin-bottom:10px">
+            <div class="fld"><label>رقم الشقة</label><input class="inp" id="wl-apt" type="number" placeholder="101"></div>
+            <div class="fld"><label>الإيجار (AED)</label><input class="inp" id="wl-rent" type="number" placeholder="1500"></div>
+          </div>
+          <div class="row2" style="margin-bottom:10px">
+            <div class="fld"><label>التأمين (AED)</label><input class="inp" id="wl-dep" type="number" placeholder="300"></div>
+            <div class="fld"><label>تاريخ البدء</label><input class="inp" id="wl-start" type="date"></div>
+          </div>
+          <div class="row2" style="margin-bottom:10px">
+            <div class="fld"><label>المبنى</label>
+              <input class="inp" id="wl-building" value="Arabian Gulf" placeholder="Arabian Gulf">
+            </div>
+            <div class="fld"><label>عدد الأشخاص</label>
+              <input class="inp" id="wl-persons" type="number" value="1" min="1" placeholder="1">
+            </div>
+          </div>
+          <div class="row2" style="margin-bottom:10px">
+            <div class="fld">
+              <label>رقم الهوية / الجواز</label>
+              <input class="inp" id="wl-id" placeholder="784-XXXX-XXXXXXX-X" inputmode="numeric">
+            </div>
+            <div class="fld">
+              <label>واتساب (اختياري)</label>
+              <input class="inp" id="wl-phone" type="tel" placeholder="971501234567" inputmode="numeric">
+            </div>
+          </div>
+          <div id="welcome-preview" style="margin-top:8px"></div>
+        </div>
+
+      </div>
+    </div>
+
   </div><!-- /content -->
 
   <!-- Bottom nav -->
@@ -350,7 +425,11 @@
     <div class="ni" data-p="unit" onclick="goPanel('unit')"><div class="ni-ic">➕</div><div class="ni-lb" id="nav-add">إضافة</div></div>
     <div class="ni" data-p="pay" onclick="goPanel('pay')"><div class="ni-ic">💰</div><div class="ni-lb" id="nav-ops">عمليات</div></div>
     <div class="ni" data-p="reports" onclick="goPanel('reports')"><div class="ni-ic">📈</div><div class="ni-lb" id="nav-reports">تقارير</div></div>
+    <div class="ni" data-p="moves" onclick="goPanel('moves')"><div class="ni-ic">🚪</div><div class="ni-lb">تنقلات</div></div>
   </nav>
+
+  <!-- ══ MOVES PANEL ══ -->
+</div>
 </div><!-- /app -->
 
 <!-- ══ DRAWER ══ -->
@@ -371,7 +450,6 @@
 </div>
 
 <!-- ══ SCRIPTS ══ -->
-
 <!-- ══ SCRIPTS ══ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
@@ -382,6 +460,7 @@
 <script src="js/whatsapp.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/images.js"></script>
+<script src="js/moves.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>

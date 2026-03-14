@@ -28,13 +28,16 @@ async function doForgot() {
 }
 
 async function doLogout() {
+  try {
   await sb.auth.signOut();
-  ME = null; MY_ROLE = 'collector'; MO = [];
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('auth-screen').style.display = 'flex';
+    ME = null; MY_ROLE = 'collector'; MO = [];
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+  } catch(e) { toast('خطأ: ' + e.message, 'err'); console.error('doLogout:', e); }
 }
 
 async function afterLogin() {
+  applyTheme(localStorage.getItem('app_theme') || 'dark');
   try {
     var { data: prof } = await sb.from('profiles').select('name,role').eq('id', ME.id).single();
     if (prof) {

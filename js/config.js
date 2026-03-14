@@ -14,6 +14,11 @@ var _toastTmr, _FILT = 'all';
 
 // ── Supabase Init ──
 
+
+// ══ OFFLINE DETECTION ══
+window.addEventListener('online',  function(){ toast('🟢 اتصال مُستعاد','ok'); });
+window.addEventListener('offline', function(){ toast('🔴 لا يوجد اتصال بالإنترنت','err'); });
+
 // ══ THEME TOGGLE ══
 
 var APP_THEME = localStorage.getItem('app_theme') || 'dark';
@@ -31,9 +36,10 @@ function toast(msg, type) {
   clearTimeout(_toastTmr);
   var el = document.getElementById('toast');
   if(!el) return;
-  el.textContent = msg;
+  var icon = type==='err' ? '❌ ' : type==='ok' ? '✅ ' : 'ℹ️ ';
+  el.textContent = icon + msg;
   el.className = 'show' + (type==='err'?' err':type==='ok'?' ok':'');
-  _toastTmr = setTimeout(() => el.className='', 3000);
+  _toastTmr = setTimeout(function(){ el.className=''; }, 3200);
 }
 
 function goPanel(name) {
@@ -44,11 +50,13 @@ function goPanel(name) {
   var ni = document.querySelector('.ni[data-p="'+name+'"]');
   if(ni) ni.classList.add('active');
   CURRENT_PANEL = name;
+  if(name==='home') loadHome(document.getElementById('btn-refresh'), false);
   if(name==='units') loadUnits();
   if(name==='pay') {
     var pd = document.getElementById('r-pdate');
     if(pd && !pd.value) pd.value = new Date().toISOString().split('T')[0];
   }
+  if(name==='moves') { loadMovesList('depart'); loadMovesList('arrive'); }
 }
 
 function switchTab(id, btn) {
