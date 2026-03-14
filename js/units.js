@@ -54,29 +54,27 @@ async function loadHome(btn, force) {
 }
 
 async function loadUnits() {
-  try {
   var { data } = await sb.from('units').select('*').order('apartment',{ascending:true});
-    if(!data) data=[];
-    // Sort numerically: by apartment number, then room number
-    data.sort((a,b)=>{
-      var aptA=parseInt(a.apartment)||0, aptB=parseInt(b.apartment)||0;
-      if(aptA!==aptB) return aptA-aptB;
-      var rA=parseInt(a.room)||0, rB=parseInt(b.room)||0;
-      return rA-rB;
-    });
-    MO = data;
-  
-    // Get this month's payments
-    var now = new Date();
-    var ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-    var { data: pays } = await sb.from('rent_payments').select('unit_id,amount').gte('payment_month',ym+'-01').lte('payment_month',ym+'-31');
-    var paidMap = {};
-    (pays||[]).forEach(p=>{ paidMap[p.unit_id]=(paidMap[p.unit_id]||0)+p.amount; });
-  
-    _paidMapCache = paidMap;
-    renderUnits(data, paidMap);
-    document.getElementById('units-count').textContent = data.length + (LANG==='ar'?' وحدة':' units');
-  } catch(e) { toast('خطأ: ' + e.message, 'err'); console.error('loadUnits:', e); }
+  if(!data) data=[];
+  // Sort numerically: by apartment number, then room number
+  data.sort((a,b)=>{
+    var aptA=parseInt(a.apartment)||0, aptB=parseInt(b.apartment)||0;
+    if(aptA!==aptB) return aptA-aptB;
+    var rA=parseInt(a.room)||0, rB=parseInt(b.room)||0;
+    return rA-rB;
+  });
+  MO = data;
+
+  // Get this month's payments
+  var now = new Date();
+  var ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  var { data: pays } = await sb.from('rent_payments').select('unit_id,amount').gte('payment_month',ym+'-01').lte('payment_month',ym+'-31');
+  var paidMap = {};
+  (pays||[]).forEach(p=>{ paidMap[p.unit_id]=(paidMap[p.unit_id]||0)+p.amount; });
+
+  _paidMapCache = paidMap;
+  renderUnits(data, paidMap);
+  document.getElementById('units-count').textContent = data.length + (LANG==='ar'?' وحدة':' units');
 }
 
 function renderUnits(units, paidMap) {
@@ -281,7 +279,6 @@ var now = new Date();
     + '<button class="btn bg" style="flex:1;font-size:.8rem" id="drawer-wa-btn">💬 WhatsApp</button>'
     + '<button class="btn br" style="flex:1;font-size:.8rem" id="drawer-del-btn">🗑️ '+(LANG==='ar'?'حذف':'Delete')+'</button>'
     + '</div>'
-    + '<button id="drawer-contract-btn" style="width:100%;padding:11px;background:var(--accent)22;border:1px solid var(--accent);border-radius:12px;color:var(--accent);font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px">📄 '+(LANG==='ar'?'إرسال العقد / PDF':'Contract / PDF')+'</button>'
     + '<button id="drawer-hist-btn" style="width:100%;padding:11px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:.82rem;font-weight:600;cursor:pointer">📋 '+(LANG==='ar'?'سجل الدفعات':'Payment History')+'</button>'
     + '<div id="pay-history" style="display:none"></div>';
 
@@ -305,8 +302,7 @@ var now = new Date();
   document.getElementById('drawer-edit-btn').onclick  = function(){ closeDrawer(); editUnit(_u.id); };
   document.getElementById('drawer-del-btn').onclick   = function(){ confirmDel(_u.id, _u.apartment, _u.room); };
   document.getElementById('drawer-wa-btn').onclick    = function(){ if(_u.tenant_name2) askWhoWA(_u.apartment,_u.room,_u); else showWAModal(_u.apartment,_u.room); };
-  document.getElementById('drawer-hist-btn').onclick = function(){ togglePayHistory(_u.id); };
-  document.getElementById('drawer-contract-btn').onclick = function(){ openWelcomeFromUnit(_u); };
+  document.getElementById('drawer-hist-btn').onclick  = function(){ togglePayHistory(_u.id); };
 
   // Re-attach overlay listener each time (safe)
   var _ov = document.getElementById('drawerOverlay');
@@ -341,32 +337,30 @@ function closeDrawer() {
 }
 
 async function editUnit(unitId) {
-  try {
   var unit = MO.find(u=>u.id===unitId);
-    if(!unit) {
-      var { data } = await sb.from('units').select('*').eq('id',unitId).single();
-      unit = data;
-    }
-    if(!unit) { toast(LANG==='ar'?'لم يتم العثور على الوحدة':'Unit not found','err'); return; }
-    goPanel('unit');
-    document.getElementById('u-apt').value   = unit.apartment||'';
-    document.getElementById('u-room').value  = unit.room||'';
-    document.getElementById('u-rent').value  = unit.monthly_rent||'';
-    document.getElementById('u-rent1').value = unit.rent1||'';
-    document.getElementById('u-rent2').value = unit.rent2||'';
-    document.getElementById('u-dep').value   = unit.deposit||'';
-    document.getElementById('u-start').value = unit.start_date||'';
-    document.getElementById('u-name').value  = unit.tenant_name||'';
-    document.getElementById('u-phone').value = unit.phone||'';
-    document.getElementById('u-name2').value = unit.tenant_name2||'';
-    document.getElementById('u-phone2').value= unit.phone2||'';
-    document.getElementById('u-cnt').value   = unit.persons_count||1;
-    document.getElementById('u-lang').value  = unit.language||'ar';
-    document.getElementById('u-win').value   = unit.window_status||'';
-    document.getElementById('u-notes').value = unit.notes||'';
-    var pr=document.getElementById('total-rent-preview');
-    if(pr) pr.textContent=(unit.monthly_rent||0)+' AED';
-  } catch(e) { toast('خطأ: ' + e.message, 'err'); console.error('editUnit:', e); }
+  if(!unit) {
+    var { data } = await sb.from('units').select('*').eq('id',unitId).single();
+    unit = data;
+  }
+  if(!unit) { toast(LANG==='ar'?'لم يتم العثور على الوحدة':'Unit not found','err'); return; }
+  goPanel('unit');
+  document.getElementById('u-apt').value   = unit.apartment||'';
+  document.getElementById('u-room').value  = unit.room||'';
+  document.getElementById('u-rent').value  = unit.monthly_rent||'';
+  document.getElementById('u-rent1').value = unit.rent1||'';
+  document.getElementById('u-rent2').value = unit.rent2||'';
+  document.getElementById('u-dep').value   = unit.deposit||'';
+  document.getElementById('u-start').value = unit.start_date||'';
+  document.getElementById('u-name').value  = unit.tenant_name||'';
+  document.getElementById('u-phone').value = unit.phone||'';
+  document.getElementById('u-name2').value = unit.tenant_name2||'';
+  document.getElementById('u-phone2').value= unit.phone2||'';
+  document.getElementById('u-cnt').value   = unit.persons_count||1;
+  document.getElementById('u-lang').value  = unit.language||'ar';
+  document.getElementById('u-win').value   = unit.window_status||'';
+  document.getElementById('u-notes').value = unit.notes||'';
+  var pr=document.getElementById('total-rent-preview');
+  if(pr) pr.textContent=(unit.monthly_rent||0)+' AED';
 }
 
 function confirmDel(id, apt, room) {
@@ -375,15 +369,13 @@ function confirmDel(id, apt, room) {
 }
 
 async function deleteUnit(id) {
-  try {
   closeDrawer();
-    var { error } = await sb.from('units').delete().eq('id',id);
-    if(error){ toast('خطأ: '+error.message,'err'); return; }
-    toast(LANG==='ar'?'تم الحذف ✓':'Deleted ✓','ok');
-    MO = MO.filter(u=>u.id!==id);
-    loadUnits();
-    loadHome(null,true);
-  } catch(e) { toast('خطأ: ' + e.message, 'err'); console.error('deleteUnit:', e); }
+  var { error } = await sb.from('units').delete().eq('id',id);
+  if(error){ toast('خطأ: '+error.message,'err'); return; }
+  toast(LANG==='ar'?'تم الحذف ✓':'Deleted ✓','ok');
+  MO = MO.filter(u=>u.id!==id);
+  loadUnits();
+  loadHome(null,true);
 }
 
 async function saveUnit(btn) {
@@ -488,29 +480,5 @@ function calcTotalRent() {
   if(total>0) document.getElementById('u-rent').value=total;
 }
 
-function openWelcomeFromUnit(unit) {
-  closeDrawer();
-  // Fill welcome form from unit data
-  setTimeout(function() {
-    goPanel('moves');
-    setTimeout(function() {
-      // Switch to welcome tab
-      var welcomeTab = document.querySelector('[onclick*="tWelcome"]');
-      if(welcomeTab) welcomeTab.click();
-      setTimeout(function() {
-        var el = function(id){ return document.getElementById(id); };
-        if(el('wl-name'))     el('wl-name').value     = unit.tenant_name || '';
-        if(el('wl-room'))     el('wl-room').value     = unit.room || '';
-        if(el('wl-apt'))      el('wl-apt').value      = unit.apartment || '';
-        if(el('wl-rent'))     el('wl-rent').value     = unit.monthly_rent || '';
-        if(el('wl-dep'))      el('wl-dep').value      = unit.deposit || '';
-        if(el('wl-persons'))  el('wl-persons').value  = unit.persons_count || '1';
-        if(el('wl-phone'))    el('wl-phone').value    = (unit.phone || '').replace(/\D/g,'');
-        if(el('wl-start') && unit.start_date) el('wl-start').value = unit.start_date.slice(0,10);
-      }, 200);
-    }, 100);
-  }, 300);
-}
 
-
-window.loadHome=loadHome; window.loadUnits=loadUnits; window.renderUnits=renderUnits; window.setFilter=setFilter; window.filterUnits=filterUnits; window.openDrawer=openDrawer; window.drTouchStart=drTouchStart; window.drTouchMove=drTouchMove; window.drTouchEnd=drTouchEnd; window.closeDrawer=closeDrawer; window.editUnit=editUnit; window.confirmDel=confirmDel; window.deleteUnit=deleteUnit; window.saveUnit=saveUnit; window.clearUnit=clearUnit; window.calcTotalRent=calcTotalRent; window.openWelcomeFromUnit=openWelcomeFromUnit;
+window.loadHome=loadHome; window.loadUnits=loadUnits; window.renderUnits=renderUnits; window.setFilter=setFilter; window.filterUnits=filterUnits; window.openDrawer=openDrawer; window.drTouchStart=drTouchStart; window.drTouchMove=drTouchMove; window.drTouchEnd=drTouchEnd; window.closeDrawer=closeDrawer; window.editUnit=editUnit; window.confirmDel=confirmDel; window.deleteUnit=deleteUnit; window.saveUnit=saveUnit; window.clearUnit=clearUnit; window.calcTotalRent=calcTotalRent;
