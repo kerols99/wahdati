@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wahdati">
+<meta name="theme-color" content="#0a0c12">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NzAgNDcwIiB3aWR0aD0iNDcwIiBoZWlnaHQ9IjQ3MCI+CgogIDwhLS0gR3JlZW4gYnVzaGVzIC8gZ3JvdW5kIHNpZGVzIC0tPgogIDxyZWN0IHg9IjIwIiB5PSIzNzAiIHdpZHRoPSIxMjAiIGhlaWdodD0iODAiIHJ4PSI0MCIgZmlsbD0iIzdDQzlBMCIvPgogIDxyZWN0IHg9IjMzMCIgeT0iMzcwIiB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNDAiIGZpbGw9IiM4NUNFQUEiLz4KCiAgPCEtLSBDaGltbmV5cyAtLT4KICA8cmVjdCB4PSIxMTgiIHk9IjE4IiB3aWR0aD0iMzIiIGhlaWdodD0iNTIiIHJ4PSIzIiBmaWxsPSIjOUU5RTlFIi8+CiAgPHJlY3QgeD0iMTYyIiB5PSIzMCIgd2lkdGg9IjMyIiBoZWlnaHQ9IjQwIiByeD0iMyIgZmlsbD0iI0FFQUVBRSIvPgoKICA8IS0tIE1haW4gYnVpbGRpbmcgYm9keSAtIGxlZnQgaGFsZiAobGlnaHRlciB5ZWxsb3cpIC0tPgogIDxyZWN0IHg9IjYwIiB5PSI2NSIgd2lkdGg9IjE3NSIgaGVpZ2h0PSIzNjAiIGZpbGw9IiNGRkNGNkIiLz4KCiAgPCEtLSBNYWluIGJ1aWxkaW5nIGJvZHkgLSByaWdodCBoYWxmIC0tPgogIDxyZWN0IHg9IjIzNSIgeT0iNjUiIHdpZHRoPSIxNzUiIGhlaWdodD0iMzYwIiBmaWxsPSIjRkZBRjVDIi8+CgogIDwhLS0gV2luZG93cyAtLT4KICA8cmVjdCB4PSIxMDUiIHk9IjExNSIgd2lkdGg9IjQ1IiBoZWlnaHQ9IjY1IiByeD0iMyIgZmlsbD0id2hpdGUiLz4KICA8cmVjdCB4PSIxNjUiIHk9IjExNSIgd2lkdGg9IjQ1IiBoZWlnaHQ9IjY1IiByeD0iMyIgZmlsbD0iI0VERTBEQSIvPgogIDxyZWN0IHg9IjIyNSIgeT0iMTE1IiB3aWR0aD0iNDUiIGhlaWdodD0iNjUiIHJ4PSIzIiBmaWxsPSIjRURFMERBIi8+CiAgPHJlY3QgeD0iMjg1IiB5PSIxMTUiIHdpZHRoPSI0NSIgaGVpZ2h0PSI2NSIgcng9IjMiIGZpbGw9IiNFOEQ4RDAiLz4KICA8cmVjdCB4PSIxMDUiIHk9IjIxMCIgd2lkdGg9IjQ1IiBoZWlnaHQ9IjY1IiByeD0iMyIgZmlsbD0id2hpdGUiLz4KICA8cmVjdCB4PSIxNjUiIHk9IjIxMCIgd2lkdGg9IjQ1IiBoZWlnaHQ9IjY1IiByeD0iMyIgZmlsbD0iI0VERTBEQSIvPgogIDxyZWN0IHg9IjIyNSIgeT0iMjEwIiB3aWR0aD0iNDUiIGhlaWdodD0iNjUiIHJ4PSIzIiBmaWxsPSIjRURFMERBIi8+CiAgPHJlY3QgeD0iMjg1IiB5PSIyMTAiIHdpZHRoPSI0NSIgaGVpZ2h0PSI2NSIgcng9IjMiIGZpbGw9IiNFOEQ4RDAiLz4KCiAgPCEtLSBEb29yIC0tPgogIDxyZWN0IHg9IjE1NSIgeT0iMzEwIiB3aWR0aD0iMTYwIiBoZWlnaHQ9IjExNSIgcng9IjAiIGZpbGw9IndoaXRlIi8+CiAgPGVsbGlwc2UgY3g9IjIzNSIgY3k9IjMxMCIgcng9IjgwIiByeT0iNjAiIGZpbGw9IndoaXRlIi8+CiAgPHJlY3QgeD0iMTc1IiB5PSIzMTAiIHdpZHRoPSI1NSIgaGVpZ2h0PSIxMTUiIHJ4PSIzIiBmaWxsPSIjQzg4QjRBIi8+CiAgPHJlY3QgeD0iMjQwIiB5PSIzMTAiIHdpZHRoPSI1NSIgaGVpZ2h0PSIxMTUiIHJ4PSIzIiBmaWxsPSIjQjg3QjNBIi8+Cjwvc3ZnPg==">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NzAgNDcwIj48cmVjdCB3aWR0aD0iNDcwIiBoZWlnaHQ9IjQ3MCIgZmlsbD0iIzBhMGMxMiIvPjxyZWN0IHg9IjYwIiB5PSI2NSIgd2lkdGg9IjE3NSIgaGVpZ2h0PSIzNjAiIGZpbGw9IiNGRkNGNkIiLz48cmVjdCB4PSIyMzUiIHk9IjY1IiB3aWR0aD0iMTc1IiBoZWlnaHQ9IjM2MCIgZmlsbD0iI0ZGQUYzQSIvPjwvc3ZnPg==">
+<title>Wahdati</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ══ TOAST ══ -->
+<div id="toast"></div>
+
+<!-- ══ AUTH SCREEN ══ -->
+<div id="auth-screen">
+  <div class="auth-logo">
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NzAgNDcwIiB3aWR0aD0iNDcwIiBoZWlnaHQ9IjQ3MCI+CiAgPHJlY3Qgd2lkdGg9IjQ3MCIgaGVpZ2h0PSI0NzAiIGZpbGw9IiMwYTBjMTIiLz4KICA8cmVjdCB4PSIyMCIgeT0iMzcwIiB3aWR0aD0iMTIwIiBoZWlnaHQ9IjgwIiByeD0iNDAiIGZpbGw9IiM3Q0M5QTAiLz4KICA8cmVjdCB4PSIzMzAiIHk9IjM3MCIgd2lkdGg9IjEyMCIgaGVpZ2h0PSI4MCIgcng9IjQwIiBmaWxsPSIjODVDRUFBIi8+CiAgPHJlY3QgeD0iNjAiIHk9IjY1IiB3aWR0aD0iMTc1IiBoZWlnaHQ9IjM2MCIgZmlsbD0iI0ZGQ0Y2QiIvPgogIDxyZWN0IHg9IjIzNSIgeT0iNjUiIHdpZHRoPSIxNzUiIGhlaWdodD0iMzYwIiBmaWxsPSIjRkZBRjVDIi8+CiAgPHJlY3QgeD0iMTA1IiB5PSIxMTUiIHdpZHRoPSI0NSIgaGVpZ2h0PSI2NSIgcng9IjMiIGZpbGw9IndoaXRlIi8+CiAgPHJlY3QgeD0iMTY1IiB5PSIxMTUiIHdpZHRoPSI0NSIgaGVpZ2h0PSI2NSIgcng9IjMiIGZpbGw9IiNFREUwREEiLz4KICA8cmVjdCB4PSIyMjUiIHk9IjExNSIgd2lkdGg9IjQ1IiBoZWlnaHQ9IjY1IiByeD0iMyIgZmlsbD0iI0VERTBEQSIvPgogIDxyZWN0IHg9IjI4NSIgeT0iMTE1IiB3aWR0aD0iNDUiIGhlaWdodD0iNjUiIHJ4PSIzIiBmaWxsPSIjRThEOEQwIi8+CiAgPHJlY3QgeD0iMTA1IiB5PSIyMTAiIHdpZHRoPSI0NSIgaGVpZ2h0PSI2NSIgcng9IjMiIGZpbGw9IndoaXRlIi8+CiAgPHJlY3QgeD0iMTY1IiB5PSIyMTAiIHdpZHRoPSI0NSIgaGVpZ2h0PSI2NSIgcng9IjMiIGZpbGw9IiNFREUwREEiLz4KICA8cmVjdCB4PSIyMjUiIHk9IjIxMCIgd2lkdGg9IjQ1IiBoZWlnaHQ9IjY1IiByeD0iMyIgZmlsbD0iI0VERTBEQSIvPgogIDxyZWN0IHg9IjI4NSIgeT0iMjEwIiB3aWR0aD0iNDUiIGhlaWdodD0iNjUiIHJ4PSIzIiBmaWxsPSIjRThEOEQwIi8+CiAgPHJlY3QgeD0iMTU1IiB5PSIzMTAiIHdpZHRoPSIxNjAiIGhlaWdodD0iMTE1IiByeD0iMCIgZmlsbD0id2hpdGUiLz4KICA8ZWxsaXBzZSBjeD0iMjM1IiBjeT0iMzEwIiByeD0iODAiIHJ5PSI2MCIgZmlsbD0id2hpdGUiLz4KICA8cmVjdCB4PSIxNzUiIHk9IjMxMCIgd2lkdGg9IjU1IiBoZWlnaHQ9IjExNSIgcng9IjMiIGZpbGw9IiNDODhCNEEiLz4KICA8cmVjdCB4PSIyNDAiIHk9IjMxMCIgd2lkdGg9IjU1IiBoZWlnaHQ9IjExNSIgcng9IjMiIGZpbGw9IiNCODdCM0EiLz4KPC9zdmc+" alt="Wahdati">
+    <div class="auth-name">Wahdati</div>
+    <div class="auth-sub" id="auth-sub-text">نظام إدارة العقارات<br><span style="font-size:.72rem;color:var(--muted)">للدخول فقط — تواصل مع المسؤول للحصول على حساب</span></div>
+  </div>
+  <div class="auth-box">
+    <div class="fld"><label id="lbl-email">البريد الإلكتروني</label><input class="inp" id="l-email" type="email" placeholder="you@email.com" dir="ltr" autocomplete="email"></div>
+    <div class="fld"><label id="lbl-pass">كلمة السر</label><input class="inp" id="l-pass" type="password" placeholder="••••••••" dir="ltr" autocomplete="current-password"></div>
+    <button class="abtn" id="lbtn" onclick="doLogin()">🔐 دخول</button>
+    <div class="aforgot" onclick="doForgot()" id="forgot-btn">نسيت كلمة السر؟</div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-l">
+      <img class="logo-ic" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0NzAgNDcwIj48cmVjdCB3aWR0aD0iNDcwIiBoZWlnaHQ9IjQ3MCIgZmlsbD0iIzBhMGMxMiIvPjxyZWN0IHg9IjYwIiB5PSI2NSIgd2lkdGg9IjE3NSIgaGVpZ2h0PSIzNjAiIGZpbGw9IiNGRkNGNkIiLz48cmVjdCB4PSIyMzUiIHk9IjY1IiB3aWR0aD0iMTc1IiBoZWlnaHQ9IjM2MCIgZmlsbD0iI0ZGQUYzQSIvPjwvc3ZnPg==" alt="">
+      <span class="logo-tx">Wahdati</span>
+    </div>
+    <div class="topbar-r">
+      <div class="icbtn" id="theme-btn" onclick="toggleTheme()" style="font-size:15px" title="تبديل المظهر">🌙</div>
+      <div class="icbtn" id="lang-btn" onclick="toggleLang()" style="font-size:11px;font-weight:700;color:var(--accent)">EN</div>
+      <div class="icbtn" id="ubadge" onclick="goPanel('settings')" style="font-size:.7rem;font-weight:700;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+      <div class="icbtn" onclick="goPanel('settings')">⚙️</div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- ── HOME ── -->
+    <div class="panel active" id="panel-home">
+      <div class="sh"><h2 id="h-home">الرئيسية</h2><span style="font-size:.75rem;color:var(--muted)" id="home-month"></span></div>
+      <div class="sgrid">
+        <div class="scard"><div class="snum" id="sp" style="color:var(--green)">0</div><div class="slbl" id="sl-paid">مدفوعة</div><div class="ssub" id="ss-paid">وحدة</div></div>
+        <div class="scard"><div class="snum" id="spar" style="color:var(--amber)">0</div><div class="slbl" id="sl-partial">جزئية</div><div class="ssub" id="ss-partial">وحدة</div></div>
+        <div class="scard"><div class="snum" id="su" style="color:var(--red)">0</div><div class="slbl" id="sl-unpaid">غير مدفوعة</div><div class="ssub" id="ss-unpaid">وحدة</div></div>
+        <div class="scard"><div class="snum" id="srem" style="color:var(--accent)">0</div><div class="slbl" id="sl-remaining">المتبقي</div><div class="ssub" id="ss-remaining">وحدة</div></div>
+      </div>
+      <button class="btn bp" onclick="loadHome(this,true)" id="btn-refresh">🔄 تحديث</button>
+      <button class="btn bg" onclick="goPanel('reports')" id="btn-reports" style="margin-top:8px">📊 التقارير</button>
+      <div class="card" style="margin-top:14px">
+        <div class="clbl" id="lbl-late">المتأخرون هذا الشهر</div>
+        <div id="lateList"></div>
+      </div>
+    </div>
+
+    <!-- ── UNITS ── -->
+    <div class="panel" id="panel-units">
+      <div class="sh"><h2 id="h-units">الوحدات</h2><span style="font-size:.75rem;color:var(--muted)" id="units-count"></span></div>
+      <!-- Filter buttons -->
+      <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px" id="filter-btns">
+        <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)" 
+          style="padding:7px 14px;border-radius:20px;border:1.5px solid var(--accent);background:var(--accent);color:var(--text);font-size:.75rem;font-weight:700;white-space:nowrap;cursor:pointer;font-family:inherit">
+          الكل
+        </button>
+        <button class="filter-btn" data-filter="unpaid" onclick="setFilter('unpaid',this)"
+          style="padding:7px 14px;border-radius:20px;border:1.5px solid var(--border);background:none;color:var(--muted);font-size:.75rem;font-weight:700;white-space:nowrap;cursor:pointer;font-family:inherit">
+          ❌ لم يدفع
+        </button>
+        <button class="filter-btn" data-filter="partial" onclick="setFilter('partial',this)"
+          style="padding:7px 14px;border-radius:20px;border:1.5px solid var(--border);background:none;color:var(--muted);font-size:.75rem;font-weight:700;white-space:nowrap;cursor:pointer;font-family:inherit">
+          ⚠️ جزئي
+        </button>
+        <button class="filter-btn" data-filter="paid" onclick="setFilter('paid',this)"
+          style="padding:7px 14px;border-radius:20px;border:1.5px solid var(--border);background:none;color:var(--muted);font-size:.75rem;font-weight:700;white-space:nowrap;cursor:pointer;font-family:inherit">
+          ✅ مدفوع
+        </button>
+        <button class="filter-btn" data-filter="vacant" onclick="setFilter('vacant',this)"
+          style="padding:7px 14px;border-radius:20px;border:1.5px solid var(--border);background:none;color:var(--muted);font-size:.75rem;font-weight:700;white-space:nowrap;cursor:pointer;font-family:inherit">
+          🏠 شاغرة
+        </button>
+      </div>
+      <div class="search-wrap">
+        <input class="inp" id="search-inp" oninput="filterUnits()" placeholder="ابحث بالشقة أو الاسم...">
+        <span class="search-icon">🔍</span>
+      </div>
+      <div id="unitList"></div>
+    </div>
+
+    <!-- ── ADD UNIT ── -->
+    <div class="panel" id="panel-unit">
+      <div class="sh"><h2 id="h-add">إضافة / تحديث وحدة</h2></div>
+      <div class="card">
+        <div class="clbl" id="lbl-unit-sec">بيانات الوحدة</div>
+        <div class="row2">
+          <div class="fld"><label id="lbl-apt">الشقة</label><input class="inp" id="u-apt" placeholder="101" type="number" inputmode="numeric"></div>
+          <div class="fld"><label id="lbl-room">الغرفة</label><input class="inp" id="u-room" placeholder="A"></div>
+        </div>
+        <div class="row2">
+          <div class="fld"><label id="lbl-rent">الإيجار (AED)</label><input class="inp" id="u-rent" type="number" inputmode="numeric" placeholder="1500"></div>
+          <div class="fld"><label id="lbl-dep">التأمين (AED)</label><input class="inp" id="u-dep" type="number" inputmode="numeric" placeholder="0"></div>
+        </div>
+        <div class="fld"><label id="lbl-start">تاريخ البداية</label><input class="inp" id="u-start" type="date"></div>
+      </div>
+      <div class="card">
+        <div class="clbl" id="lbl-tenant-sec">بيانات المستأجر</div>
+        <div style="font-size:.72rem;color:var(--accent);font-weight:700;margin-bottom:8px">👤 المستأجر الأول</div>
+        <div class="fld"><label id="lbl-uname">الاسم</label><input class="inp" id="u-name" placeholder="محمد أحمد"></div>
+        <div class="row2">
+          <div class="fld"><label id="lbl-phone">الهاتف</label><input class="inp" id="u-phone" type="tel" placeholder="0501234567"></div>
+          <div class="fld"><label id="lbl-rent1">إيجاره (AED)</label><input class="inp" id="u-rent1" type="number" inputmode="numeric" placeholder="0" oninput="calcTotalRent()"></div>
+        </div>
+        <div style="font-size:.72rem;color:var(--amber);font-weight:700;margin:10px 0 8px">👤 المستأجر الثاني (اختياري)</div>
+        <div class="fld"><label id="lbl-uname2">الاسم</label><input class="inp" id="u-name2" placeholder="أحمد علي"></div>
+        <div class="row2">
+          <div class="fld"><label id="lbl-phone2">الهاتف</label><input class="inp" id="u-phone2" type="tel" placeholder="0501234567"></div>
+          <div class="fld"><label id="lbl-rent2">إيجاره (AED)</label><input class="inp" id="u-rent2" type="number" inputmode="numeric" placeholder="0" oninput="calcTotalRent()"></div>
+        </div>
+        <div style="background:var(--surf2);border-radius:10px;padding:10px;margin-bottom:4px;font-size:.82rem">
+          <span style="color:var(--muted)">الإيجار الكلي: </span>
+          <span style="font-weight:700;color:var(--accent)" id="total-rent-preview">0 AED</span>
+        </div>
+        <div class="fld"><label id="lbl-cnt">عدد الأشخاص</label><input class="inp" id="u-cnt" type="number" inputmode="numeric" value="1" min="1"></div>
+        <div class="row2">
+          <div class="fld"><label id="lbl-lang">اللغة</label>
+            <select class="sel" id="u-lang">
+              <option value="ar">عربي</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div class="fld"><label id="lbl-win">حالة النافذة</label><input class="inp" id="u-win" placeholder="سليمة"></div>
+        </div>
+        <div class="fld"><label id="lbl-notes">ملاحظات</label><textarea class="inp" id="u-notes" rows="2" placeholder="أي ملاحظات..." style="resize:vertical"></textarea></div>
+      </div>
+      <div class="fld">
+          <label>📷 صور الوحدة</label>
+          <div id="unit-imgs-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"></div>
+          <input type="file" id="u-imgs" accept="image/*" multiple style="display:none" onchange="previewUnitImgs(this)">
+          <button type="button" onclick="document.getElementById('u-imgs').click()" 
+            style="width:100%;padding:10px;background:var(--surf2);border:1px dashed var(--border);border-radius:12px;color:var(--muted);font-family:inherit;cursor:pointer">
+            📷 اختر صور (اختياري)
+          </button>
+        </div>
+        <button class="btn bp" id="savUnitBtn" onclick="saveUnit(this)">💾 حفظ الوحدة</button>
+      <button class="btn bg" onclick="clearUnit()">مسح</button>
+    </div>
+
+    <!-- ── OPERATIONS ── -->
+    <div class="panel" id="panel-pay">
+      <div class="sh"><h2 id="h-ops">العمليات المالية</h2></div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('tRent',this)" id="tab-rent">🏠 إيجار</button>
+        <button class="tab" onclick="switchTab('tExp',this)" id="tab-exp">💸 مصاريف</button>
+        <button class="tab" onclick="switchTab('tOwn',this)" id="tab-own">👤 للمالك</button>
+        <button class="tab" onclick="switchTab('tDep',this)" id="tab-dep">🔒 تأمين</button>
+      </div>
+
+      <!-- Rent -->
+      <div class="tpanel active" id="tRent">
+        <div class="row2">
+          <div class="fld"><label id="lbl-rapt">الشقة</label><input class="inp" id="r-apt" type="number" inputmode="numeric" placeholder="101" oninput="autoFillRent()" onblur="autoFillRent()"></div>
+          <div class="fld"><label id="lbl-rroom">الغرفة</label><input class="inp" id="r-room" placeholder="A" oninput="autoFillRent()" onblur="autoFillRent()"></div>
+        </div>
+        <div class="fld"><label id="lbl-ramt">المبلغ (AED)</label><input class="inp" id="r-amt" type="number" inputmode="numeric" placeholder="1500"></div>
+        <div class="fld"><label id="lbl-rmonth">الشهر</label><input class="inp" id="r-month" type="month"></div>
+        <div class="fld"><label id="lbl-rpdate">تاريخ الاستلام</label><input class="inp" id="r-pdate" type="date"></div>
+        <div class="fld"><label id="lbl-rmeth">طريقة الدفع</label>
+          <select class="sel" id="r-meth">
+            <option value="cash">نقداً</option>
+            <option value="transfer">تحويل بنكي</option>
+            <option value="cheque">شيك</option>
+          </select>
+        </div>
+        <div class="fld"><label id="lbl-rnotes">ملاحظات</label><input class="inp" id="r-notes" placeholder="اختياري"></div>
+        <input type="hidden" id="r-tenant-num" value="0">
+        <div id="r-tenant-badge" style="display:none;padding:8px 12px;background:var(--surf2);border-radius:10px;font-size:.8rem;color:var(--accent);font-weight:600;margin-bottom:4px"></div>
+        <button class="btn bp" onclick="saveRent(this)">✅ تسجيل الدفعة</button>
+      </div>
+
+      <!-- Expenses -->
+      <div class="tpanel" id="tExp">
+        <div class="fld"><label id="lbl-ecat">الفئة</label>
+          <select class="sel" id="e-cat">
+            <option value="صيانة">صيانة</option>
+            <option value="نظافة">نظافة</option>
+            <option value="كهرباء">كهرباء</option>
+            <option value="ماء">ماء</option>
+            <option value="أخرى">أخرى</option>
+          </select>
+        </div>
+        <div class="fld"><label id="lbl-eamt">المبلغ (AED)</label><input class="inp" id="e-amt" type="number" inputmode="numeric" placeholder="0"></div>
+        <div class="fld"><label id="lbl-emonth">الشهر</label><input class="inp" id="e-month" type="month"></div>
+        <div class="fld"><label id="lbl-erec">رقم الإيصال</label><input class="inp" id="e-rec" placeholder="اختياري"></div>
+        <div class="fld"><label id="lbl-edesc">الوصف</label><input class="inp" id="e-desc" placeholder="اختياري"></div>
+        <button class="btn bp" onclick="saveExp(this)">✅ تسجيل المصروف</button>
+      </div>
+
+      <!-- Owner -->
+      <div class="tpanel" id="tOwn">
+        <div class="fld"><label id="lbl-oamt">المبلغ (AED)</label><input class="inp" id="o-amt" type="number" inputmode="numeric" placeholder="0"></div>
+        <div class="fld"><label id="lbl-omonth">الشهر</label><input class="inp" id="o-month" type="month"></div>
+        <div class="fld"><label id="lbl-ometh">طريقة الدفع</label>
+          <select class="sel" id="o-meth">
+            <option value="cash">نقداً</option>
+            <option value="transfer">تحويل بنكي</option>
+            <option value="cheque">شيك</option>
+          </select>
+        </div>
+        <div class="fld"><label id="lbl-oref">رقم الحوالة</label><input class="inp" id="o-ref" placeholder="اختياري"></div>
+        <div class="fld"><label id="lbl-onotes">ملاحظات</label><input class="inp" id="o-notes" placeholder="اختياري"></div>
+        <button class="btn bp" onclick="saveOwner(this)">💰 تسجيل الدفعة للمالك</button>
+      </div>
+
+      <!-- Deposit -->
+      <div class="tpanel" id="tDep">
+        <div class="row2">
+          <div class="fld"><label id="lbl-dapt">الشقة</label><input class="inp" id="d-apt" type="number" inputmode="numeric" placeholder="101"></div>
+          <div class="fld"><label id="lbl-droom">الغرفة</label><input class="inp" id="d-room" placeholder="A"></div>
+        </div>
+        <div class="fld"><label id="lbl-dname">اسم المستأجر</label><input class="inp" id="d-name" placeholder="محمد أحمد"></div>
+        <div class="fld"><label id="lbl-damt">المبلغ (AED)</label><input class="inp" id="d-amt" type="number" inputmode="numeric" placeholder="0"></div>
+        <div class="fld"><label id="lbl-dstatus">الحالة</label>
+          <select class="sel" id="d-status">
+            <option value="held">محتجز (مستأجر داخل)</option>
+            <option value="refunded">مُرتجع (خرج)</option>
+            <option value="forfeited">مُصادر</option>
+          </select>
+        </div>
+        <div class="fld"><label id="lbl-dref">المبلغ المُرتجع</label><input class="inp" id="d-ref" type="number" inputmode="numeric" placeholder="0"></div>
+        <div class="fld"><label id="lbl-dded">الخصم</label><input class="inp" id="d-ded" type="number" inputmode="numeric" placeholder="0"></div>
+        <div class="fld"><label id="lbl-dwhy">سبب الخصم</label><input class="inp" id="d-why" placeholder="اختياري"></div>
+        <div class="fld"><label id="lbl-dnotes">ملاحظات</label><input class="inp" id="d-notes" placeholder="اختياري"></div>
+        <button class="btn bp" onclick="saveDep(this)">💾 حفظ التأمين</button>
+      </div>
+    </div>
+
+    <!-- ── REPORTS ── -->
+    <div class="panel" id="panel-reports">
+      <div class="sh"><h2 id="h-reports">التقارير</h2></div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('rMon',this)" id="rtab-mon">📅 شهري</button>
+        <button class="tab" onclick="switchTab('rExp',this)" id="rtab-exp">💸 مصاريف</button>
+        <button class="tab" onclick="switchTab('rDep',this)" id="rtab-dep">🔒 تأمين</button>
+        <button class="tab" onclick="switchTab('rAnn',this)" id="rtab-ann">📊 سنوي</button>
+        <button class="tab" onclick="switchTab('rStats',this)" id="rtab-stats">📈 إحصائيات</button>
+      </div>
+      <div class="tpanel active" id="rMon">
+        <div class="fld"><label id="lbl-rpm">الشهر</label><input class="inp" id="rpm" type="month"></div>
+        <button class="btn bp" onclick="loadMonthly(this)">📋 عرض التقرير</button>
+        <div id="rMonOut" style="margin-top:12px"></div>
+      </div>
+      <div class="tpanel" id="rExp">
+        <div class="fld"><label id="lbl-rem">الشهر</label><input class="inp" id="rem" type="month"></div>
+        <button class="btn bp" onclick="loadExpRpt(this)">📋 عرض التقرير</button>
+        <div id="rExpOut" style="margin-top:12px"></div>
+      </div>
+      <div class="tpanel" id="rDep">
+        <button class="btn bg" onclick="loadDepRpt(this)">🔄 تحميل التأمينات</button>
+        <div id="rDepOut" style="margin-top:12px"></div>
+      </div>
+      <div class="tpanel" id="rAnn">
+        <div class="fld"><label id="lbl-ryear">السنة</label><input class="inp" id="r-year" type="number" inputmode="numeric" placeholder="2025"></div>
+        <button class="btn bp" onclick="loadAnnual(this)">📊 عرض التقرير السنوي</button>
+        <div id="rAnnOut" style="margin-top:12px"></div>
+      </div>
+      <div class="tpanel" id="rStats">
+        <button class="btn bp" onclick="loadStats(this)" style="margin-bottom:12px">📈 عرض الإحصائيات</button>
+        <div id="statsOut"></div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ── -->
+    <div class="panel" id="panel-settings">
+      <div class="sh"><h2 id="h-settings">الإعدادات</h2></div>
+      <div class="card">
+        <div class="clbl" id="lbl-cur-user">المستخدم الحالي</div>
+        <div style="font-size:.88rem;font-weight:700" id="profName"></div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:2px" id="profEmail"></div>
+        <div style="margin-top:6px" id="profRole"></div>
+      </div>
+      <div class="card">
+        <div class="clbl" id="lbl-conn">حالة الاتصال بـ Supabase</div>
+        <div style="font-size:.82rem" id="connStatus">⏳ جارٍ الاختبار...</div>
+        <button class="btn bg" onclick="testConn()" style="margin-top:10px" id="btn-test-conn">🔌 اختبار الاتصال</button>
+      </div>
+
+      <!-- Admin section -->
+      <div id="adminSec" style="display:none">
+        <div class="card">
+          <div class="clbl" id="lbl-team">👑 إدارة الفريق</div>
+          <div style="color:var(--accent);font-size:.82rem;font-weight:600;margin-bottom:12px;cursor:pointer" onclick="toggleAddStaff()" id="btn-add-staff">+ إضافة موظف جديد</div>
+          <div id="addStaffForm" style="display:none">
+            <div class="fld"><label id="lbl-iname">الاسم</label><input class="inp" id="inv-name" placeholder="محمد أحمد"></div>
+            <div class="fld"><label id="lbl-iemail">البريد الإلكتروني</label><input class="inp" id="inv-email" type="email" placeholder="staff@email.com" dir="ltr"></div>
+            <div class="fld"><label id="lbl-ipass">كلمة السر المؤقتة</label><input class="inp" id="inv-pass" type="password" placeholder="مثل: Staff2025!"></div>
+            <div class="fld"><label id="lbl-irole">الدور</label>
+              <select class="sel" id="inv-role">
+                <option value="collector">🟡 محصّل — تسجيل دفعات فقط</option>
+                <option value="manager">🟢 مدير — كل الصلاحيات</option>
+                <option value="admin">👑 مسؤول — إدارة كاملة</option>
+                <option value="viewer">👁️ مشاهد — عرض فقط</option>
+              </select>
+            </div>
+            <button class="btn bp" id="btn-create-acc" onclick="createUser(this)">✅ إنشاء الحساب</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="clbl" id="lbl-team-list">👥 أعضاء الفريق الحالي</div>
+          <div id="teamList"></div>
+          <button class="btn bg" onclick="loadTeam(this)" style="margin-top:10px" id="btn-update-list">🔄 تحديث القائمة</button>
+        </div>
+      </div>
+
+      <!-- Install iPhone -->
+      <div class="card">
+        <div class="clbl" id="lbl-install">تثبيت على iPhone</div>
+        <div style="font-size:.78rem;color:var(--muted);line-height:1.6">
+          ١. افتح في Safari<br>
+          ٢. اضغط ⬆️ ← Add to Home Screen<br>
+          ٣. اضغط ✓ Add
+        </div>
+      </div>
+
+      <button class="btn br" onclick="doLogout()" id="btn-logout">🚪 تسجيل الخروج</button>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- Bottom nav -->
+  <nav class="nav">
+    <div class="ni active" data-p="home" onclick="goPanel('home')"><div class="ni-ic">🏠</div><div class="ni-lb" id="nav-home">الرئيسية</div></div>
+    <div class="ni" data-p="units" onclick="goPanel('units')"><div class="ni-ic">🏢</div><div class="ni-lb" id="nav-units">الوحدات</div></div>
+    <div class="ni" data-p="unit" onclick="goPanel('unit')"><div class="ni-ic">➕</div><div class="ni-lb" id="nav-add">إضافة</div></div>
+    <div class="ni" data-p="pay" onclick="goPanel('pay')"><div class="ni-ic">💰</div><div class="ni-lb" id="nav-ops">عمليات</div></div>
+    <div class="ni" data-p="reports" onclick="goPanel('reports')"><div class="ni-ic">📈</div><div class="ni-lb" id="nav-reports">تقارير</div></div>
+    <div class="ni" data-p="moves" onclick="goPanel('moves')"><div class="ni-ic">🚪</div><div class="ni-lb">تنقلات</div></div>
+  </nav>
+
+  <!-- ══ MOVES PANEL ══ -->
+  <div class="panel" id="panel-moves">
+    <div style="padding:16px">
+        <div style="font-size:1.1rem;font-weight:800;margin-bottom:16px">🚪 تنقلات الشهر</div>
+        
+        <!-- Tabs -->
+        <div class="tabs" style="margin-bottom:16px">
+          <button class="tab active" onclick="switchTab('tDepart',this)">📤 مغادرون</button>
+          <button class="tab" onclick="switchTab('tArrive',this)">📥 حجوزات جديدة</button>
+          <button class="tab" onclick="switchTab('tWelcome',this)">📄 رسالة ترحيب</button>
+        </div>
+
+        <!-- DEPARTURES TAB -->
+        <div class="tpanel active" id="tDepart">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:.82rem;color:var(--muted)">المغادرون أول الشهر القادم</span>
+            <button onclick="addMoveEntry('depart')" class="btn bp" style="padding:8px 14px;font-size:.8rem">+ إضافة</button>
+          </div>
+          <div id="depart-list"></div>
+        </div>
+
+        <!-- ARRIVALS TAB -->
+        <div class="tpanel" id="tArrive">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:.82rem;color:var(--muted)">الحجوزات الجديدة أول الشهر القادم</span>
+            <button onclick="addMoveEntry('arrive')" class="btn bp" style="padding:8px 14px;font-size:.8rem">+ إضافة</button>
+          </div>
+          <div id="arrive-list"></div>
+        </div>
+
+        <!-- WELCOME LETTER TAB -->
+        <div class="tpanel" id="tWelcome">
+          <!-- Buttons STICKY at top -->
+          <div style="display:flex;gap:8px;margin-bottom:14px;position:sticky;top:0;z-index:10;background:var(--bg);padding:8px 0 4px;flex-wrap:wrap">
+            <button class="btn bp" onclick="showWelcomeLetter()" style="flex:2;min-width:120px;font-size:.9rem">👁️ معاينة</button>
+            <button class="btn bg" onclick="printWelcomeLetter()" style="flex:1;min-width:80px;font-size:.9rem">🖨️ PDF</button>
+            <button onclick="sendWelcomeWA()" style="flex:1;min-width:80px;padding:12px 8px;background:#25D366;border:none;border-radius:12px;color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit">💬 واتساب</button>
+          </div>
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:12px">أدخل البيانات ثم اضغط معاينة أو PDF مباشرة</div>
+          <div class="row2" style="margin-bottom:10px">
+            <div class="fld"><label>اسم المستأجر</label><input class="inp" id="wl-name" placeholder="Jerome"></div>
+            <div class="fld"><label>رقم البارتشن</label><input class="inp" id="wl-room" type="number" placeholder="1"></div>
+          </div>
+          <div class="row2" style="margin-bottom:10px">
+            <div class="fld"><label>رقم الشقة</label><input class="inp" id="wl-apt" type="number" placeholder="101"></div>
+            <div class="fld"><label>الإيجار (AED)</label><input class="inp" id="wl-rent" type="number" placeholder="1500"></div>
+          </div>
+          <div class="row2" style="margin-bottom:10px">
+            <div class="fld"><label>التأمين (AED)</label><input class="inp" id="wl-dep" type="number" placeholder="300"></div>
+            <div class="fld"><label>تاريخ البدء</label><input class="inp" id="wl-start" type="date"></div>
+          </div>
+          <div class="row2" style="margin-bottom:10px">
+            <div class="fld"><label>المبنى</label>
+              <input class="inp" id="wl-building" value="Arabian Gulf" placeholder="Arabian Gulf">
+            </div>
+            <div class="fld"><label>عدد الأشخاص</label>
+              <input class="inp" id="wl-persons" type="number" value="1" min="1" placeholder="1">
+            </div>
+          </div>
+          <div class="fld" style="margin-bottom:10px">
+            <label>رقم واتساب المستأجر (اختياري)</label>
+            <input class="inp" id="wl-phone" type="tel" placeholder="971501234567" inputmode="numeric">
+          </div>
+          <div id="welcome-preview" style="margin-top:8px"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div><!-- /app -->
+
+<!-- ══ DRAWER ══ -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="drawer" ontouchstart="drTouchStart(event)" ontouchmove="drTouchMove(event)" ontouchend="drTouchEnd(event)">
+  <div class="drawer-handle"></div>
+  <div id="drawerContent"></div>
+</div>
+
+<!-- ══ PDF OVERLAY ══ -->
+<div id="pdfOverlay" style="display:none">
+  <div class="pdf-header">
+    <button onclick="document.getElementById('pdfOverlay').style.display='none'" style="background:none;border:none;color:var(--text);font-size:1.1rem;cursor:pointer">✕ إغلاق</button>
+    <span style="font-weight:700">معاينة التقرير</span>
+    <button onclick="window.print()" style="background:var(--accent);color:var(--text);border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-family:inherit;font-weight:600">🖨️ طباعة</button>
+  </div>
+  <div class="pdf-frame" id="pdf-content"></div>
+</div>
+
+<!-- ══ SCRIPTS ══ -->
+
+<!-- ══ SCRIPTS ══ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/units.js"></script>
+<script src="js/payments.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/whatsapp.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/images.js"></script>
+<script src="js/moves.js"></script>
+<script src="js/init.js"></script>
+</body>
+</html>
