@@ -152,14 +152,20 @@ function printWelcomeLetter() {
   var d = getWelcomeData();
   window._welcomeHTML = buildWelcomeLetter(d.name, d.room, d.apt, d.rent, d.dep, d.building, d.startEn, d.startAr, d.persons);
   var win = window.open('','_blank');
-  win.document.write('<html><head><meta charset="utf-8"><title>Welcome Letter</title>'
-    + '<style>body{font-family:Arial,sans-serif;padding:30px;font-size:13px;line-height:1.7;color:#111}'
-    + 'h2{color:#1a1a1a} hr{border:1px solid #ccc;margin:20px 0}'
-    + '.ar{direction:rtl;text-align:right} .en{direction:ltr;text-align:left}'
-    + 'table{width:100%;border-collapse:collapse} td{padding:6px 10px;border:1px solid #ddd}'
-    + '@media print{button{display:none}}'
-    + '</style></head><body>');
-  win.document.write('<button onclick="window.print()" style="margin-bottom:20px;padding:10px 20px;background:#3b7ef5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">🖨️ طباعة / PDF</button>');
+  if(!win) { toast('يرجى السماح بالنوافذ المنبثقة','err'); return; }
+  var printCSS = [
+    'body{font-family:Arial,sans-serif;padding:20px;font-size:12px;line-height:1.6;color:#111}',
+    'table{width:100%;border-collapse:collapse}',
+    'td,th{padding:6px 10px;border:1px solid #ddd}',
+    '@media print{.no-print{display:none}}'
+  ].join('');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Contract</title>');
+  win.document.write('<st'+'yle>' + printCSS + '</st'+'yle>');
+  win.document.write('</head><body>');
+  win.document.write('<div class="no-print" style="margin-bottom:16px">');
+  win.document.write('<button onclick="window.print()" style="padding:10px 20px;background:#3b7ef5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;margin-left:8px">🖨️ طباعة / PDF</button>');
+  win.document.write('<button onclick="window.close()" style="padding:10px 20px;background:#666;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px">✕ إغلاق</button>');
+  win.document.write('</div>');
   win.document.write(window._welcomeHTML);
   win.document.write('</body></html>');
   win.document.close();
@@ -452,29 +458,5 @@ Contact: 0585586869`;
   window.open(url, '_blank');
 }
 
-function openWelcomeFromUnit(unit) {
-  closeDrawer();
-  // Fill welcome form from unit data
-  setTimeout(function() {
-    goPanel('moves');
-    setTimeout(function() {
-      // Switch to welcome tab
-      var welcomeTab = document.querySelector('[onclick*="tWelcome"]');
-      if(welcomeTab) welcomeTab.click();
-      setTimeout(function() {
-        var el = function(id){ return document.getElementById(id); };
-        if(el('wl-name'))     el('wl-name').value     = unit.tenant_name || '';
-        if(el('wl-room'))     el('wl-room').value     = unit.room || '';
-        if(el('wl-apt'))      el('wl-apt').value      = unit.apartment || '';
-        if(el('wl-rent'))     el('wl-rent').value     = unit.monthly_rent || '';
-        if(el('wl-dep'))      el('wl-dep').value      = unit.deposit || '';
-        if(el('wl-persons'))  el('wl-persons').value  = unit.persons_count || '1';
-        if(el('wl-phone'))    el('wl-phone').value    = (unit.phone || '').replace(/\D/g,'');
-        if(el('wl-start') && unit.start_date) el('wl-start').value = unit.start_date.slice(0,10);
-      }, 200);
-    }, 100);
-  }, 300);
-}
 
-
-window.getWelcomeData=getWelcomeData; window.loadMovesList=loadMovesList; window.addMoveEntry=addMoveEntry; window.saveMoveEntry=saveMoveEntry; window.deleteMoveEntry=deleteMoveEntry; window.showWelcomeLetter=showWelcomeLetter; window.printWelcomeLetter=printWelcomeLetter; window.buildWelcomeLetter=buildWelcomeLetter; window.sendWelcomeWA=sendWelcomeWA; window.openWelcomeFromUnit=openWelcomeFromUnit;
+window.getWelcomeData=getWelcomeData; window.loadMovesList=loadMovesList; window.addMoveEntry=addMoveEntry; window.saveMoveEntry=saveMoveEntry; window.deleteMoveEntry=deleteMoveEntry; window.showWelcomeLetter=showWelcomeLetter; window.printWelcomeLetter=printWelcomeLetter; window.buildWelcomeLetter=buildWelcomeLetter; window.sendWelcomeWA=sendWelcomeWA;

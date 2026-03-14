@@ -65,10 +65,12 @@ async function loadTeam(btn) {
 }
 
 async function changeRole(userId, sel) {
+  try {
   var role = sel.value;
-  var { error } = await sb.from('profiles').update({role}).eq('id',userId);
-  if(error){ toast(error.message,'err'); return; }
-  toast(LANG==='ar'?'تم تغيير الدور ✓':'Role changed ✓','ok');
+    var { error } = await sb.from('profiles').update({role}).eq('id',userId);
+    if(error){ toast(error.message,'err'); return; }
+    toast(LANG==='ar'?'تم تغيير الدور ✓':'Role changed ✓','ok');
+  } catch(e) { toast('خطأ: ' + e.message, 'err'); console.error('changeRole:', e); }
 }
 
 
