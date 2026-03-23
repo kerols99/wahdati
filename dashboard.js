@@ -65,8 +65,8 @@ async function loadSmartDash(ym) {
       // Previous month accrual (for comparison)
       sb.from('rent_payments').select('amount').like('payment_month', prevYM + '%'),
       sb.from('moves').select('unit_id').eq('type','depart').gte('move_date',ym+'-01').lte('move_date',monthEnd(ym)),
-      sb.from('expenses').select('amount').eq('period_month', ym),
-      sb.from('owner_payments').select('amount').eq('period_month', ym)
+      sb.from('expenses').select('amount').eq('period_month', (ym||'').slice(0,7)+'-01'),
+      sb.from('owner_payments').select('amount').eq('period_month', (ym||'').slice(0,7)+'-01')
     ]);
 
     var cashPays     = cashPaysRes.data||[];
@@ -192,7 +192,7 @@ async function loadCollReport(btn) {
       sb.from('deposits')
         .select('unit_id,apartment,room,amount,deposit_received_date,tenant_name,status')
         .gte('deposit_received_date',monYM+'-01').lte('deposit_received_date',monthEnd(monYM)),
-      sb.from('expenses').select('amount,category,description').eq('period_month', monYM),
+      sb.from('expenses').select('amount,category,description').eq('period_month', (monYM||'').slice(0,7)+'-01'),
       sb.from('owner_payments').select('amount').gte('payment_date',monYM+'-01').lte('payment_date',monthEnd(monYM)),
       sb.from('rent_payments').select('amount').gte('payment_date',prevYM+'-01').lte('payment_date',monthEnd(prevYM)),
       sb.from('units').select('id,apartment,room,tenant_name,tenant_name2,monthly_rent').eq('is_vacant',false)

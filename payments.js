@@ -225,7 +225,7 @@ async function saveExp(btn) {
   try{
     var { error } = await sb.from('expenses').insert({
       category: document.getElementById('e-cat').value,
-      amount: amt, period_month: mon,
+      amount: amt, period_month: (mon||'').slice(0,7)+'-01',
       receipt_no: document.getElementById('e-rec').value.trim()||null,
       description: document.getElementById('e-desc').value.trim()||null,
     });
@@ -273,11 +273,11 @@ async function calcOwnerBalance() {
 
     // Fetch expenses this month
     var { data: exps } = await sb.from('expenses')
-      .select('amount').eq('period_month', monYM);
+      .select('amount').eq('period_month', (monYM||'').slice(0,7)+'-01');
 
     // Fetch owner payments already recorded this month
     var { data: prevOwn } = await sb.from('owner_payments')
-      .select('amount').eq('period_month', monYM);
+      .select('amount').eq('period_month', (monYM||'').slice(0,7)+'-01');
 
     var totalRent = (pays||[]).reduce(function(s,p){return s+(p.amount||0);},0);
     var totalExp  = (exps||[]).reduce(function(s,e){return s+(e.amount||0);},0);
@@ -311,7 +311,7 @@ async function saveOwner(btn) {
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   try{
     var { error } = await sb.from('owner_payments').insert({
-      amount: amt, period_month: mon,
+      amount: amt, period_month: (mon||'').slice(0,7)+'-01',
       payment_date: new Date().toISOString().slice(0,10),
       method: document.getElementById('o-meth').value,
       reference: document.getElementById('o-ref').value.trim()||null,
@@ -929,8 +929,8 @@ async function printOwnerSettlement() {
     var [pR, dR, eR, oR, uR] = await Promise.all([
       sb.from('rent_payments').select('unit_id,apartment,room,amount,payment_date,payment_method').gte('payment_date',monthStartDate).lte('payment_date',monthEndDate),
       sb.from('deposits').select('unit_id,apartment,room,amount,deposit_received_date,tenant_name').gte('deposit_received_date',monthStartDate).lte('deposit_received_date',monthEndDate),
-      sb.from('expenses').select('category,amount,description').eq('period_month', monYM),
-      sb.from('owner_payments').select('amount,method,reference,notes').eq('period_month', monYM),
+      sb.from('expenses').select('category,amount,description').eq('period_month', (monYM||'').slice(0,7)+'-01'),
+      sb.from('owner_payments').select('amount,method,reference,notes').eq('period_month', (monYM||'').slice(0,7)+'-01'),
       sb.from('units').select('id,apartment,room,tenant_name,tenant_name2')
     ]);
     var pays=pR.data||[], deps=dR.data||[], exps=eR.data||[], owns=oR.data||[], units=uR.data||[];

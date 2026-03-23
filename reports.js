@@ -40,8 +40,8 @@ async function loadMonthly(btn) {
       sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,is_vacant,start_date,deposit').eq('is_vacant',false).order('apartment'),
       // ACCRUAL: filter rent by payment_month (when rent is DUE)
       sb.from('rent_payments').select('unit_id,amount,apartment,room,payment_month,payment_date,payment_method,notes,tenant_num').like('payment_month', mon + '%'),
-      sb.from('expenses').select('amount,category,description,receipt_no,period_month').eq('period_month', mon),
-      sb.from('owner_payments').select('amount,period_month,method').eq('period_month', mon),
+      sb.from('expenses').select('amount,category,description,receipt_no,period_month').eq('period_month', (mon||'').slice(0,7)+'-01'),
+      sb.from('owner_payments').select('amount,period_month,method').eq('period_month', (mon||'').slice(0,7)+'-01'),
       // Deposits: all records (filtered in JS by deposit_received_date)
       sb.from('deposits').select('unit_id,amount,deposit_received_date,status')
     ]);
@@ -321,7 +321,7 @@ async function loadExpRpt(btn) {
   if(!mon){toast(LANG==='ar'?'اختر الشهر':'Choose month','err');return;}
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   try{
-    var { data: exps } = await sb.from('expenses').select('*').eq('period_month', mon).order('period_month',{ascending:false});
+    var { data: exps } = await sb.from('expenses').select('*').eq('period_month', (mon||'').slice(0,7)+'-01').order('period_month',{ascending:false});
     if(!exps) exps=[];
     var total = exps.reduce(function(s,e){return s+e.amount;},0);
     // Per-category summary
@@ -555,8 +555,8 @@ async function getFinancialSummaryData(monYM){
   var [rentR, depR, expR, ownerR] = await Promise.all([
     sb.from('rent_payments').select('amount').gte('payment_date', start).lte('payment_date', end),
     sb.from('deposits').select('amount').gte('deposit_received_date', start).lte('deposit_received_date', end),
-    sb.from('expenses').select('amount').eq('period_month', monYM),
-    sb.from('owner_payments').select('amount').eq('period_month', monYM)
+    sb.from('expenses').select('amount').eq('period_month', (monYM||'').slice(0,7)+'-01'),
+    sb.from('owner_payments').select('amount').eq('period_month', (monYM||'').slice(0,7)+'-01')
   ]);
   var rent = (rentR.data||[]).reduce(function(s,r){return s+Number(r.amount||0);},0);
   var deps = (depR.data||[]).reduce(function(s,r){return s+Number(r.amount||0);},0);
@@ -742,8 +742,8 @@ async function exportPDF(type, mon) {
       sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,start_date,deposit').eq('is_vacant',false).order('apartment'),
       // ACCRUAL PDF: payment_month
       sb.from('rent_payments').select('unit_id,amount,apartment,room,payment_month,payment_date,payment_method,tenant_num').like('payment_month', mon + '%'),
-      sb.from('expenses').select('amount,category,period_month').eq('period_month', mon),
-      sb.from('owner_payments').select('amount,period_month').eq('period_month', mon),
+      sb.from('expenses').select('amount,category,period_month').eq('period_month', (mon||'').slice(0,7)+'-01'),
+      sb.from('owner_payments').select('amount,period_month').eq('period_month', (mon||'').slice(0,7)+'-01'),
       sb.from('deposits').select('unit_id,amount,deposit_received_date,status')
     ]);
     var units = unitsRes2.data||[];
