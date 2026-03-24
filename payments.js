@@ -336,6 +336,7 @@ async function calcOwnerBalance() {
     detail.innerHTML =
       '🏠 إيجار محصّل: <b>'+totalRent.toLocaleString()+'</b>'
       +(totalDeps>0?' &nbsp;|&nbsp; 🔒 تأمين: <b>'+totalDeps.toLocaleString()+'</b>':'')
+      +(totalRefunds>0?' &nbsp;|&nbsp; ↩️ مرتجع تأمين: <b style="color:var(--red)">- '+totalRefunds.toLocaleString()+'</b>':'')
       +(totalExp>0?' &nbsp;|&nbsp; 📤 مصاريف: <b>-'+totalExp.toLocaleString()+'</b>':'')
       +(prevPaid>0?' &nbsp;|&nbsp; ✅ حُوِّل للمالك: <b>-'+prevPaid.toLocaleString()+'</b>':'');
 
@@ -781,11 +782,14 @@ async function editDeposit(depId) {
       + '<div class="fld"><label>'+(LANG==='ar'?'تاريخ الاستلام':'Received Date')+'</label>'
       + '<input class="inp" id="ed-date" type="date" value="'+rdVal+'"></div>'
       + '<div class="fld"><label>'+(LANG==='ar'?'الحالة':'Status')+'</label>'
-      + '<select class="inp" id="ed-status">'
+      + '<select class="inp" id="ed-status" onchange="var w=document.getElementById(\'ed-refund-date-wrap\');if(w)w.style.display=this.value===\'refunded\'?\'block\':\'none\'">'
       + '<option value="held"'+(d.status==='held'?' selected':'')+'>محتجز</option>'
       + '<option value="refunded"'+(d.status==='refunded'?' selected':'')+'>مُرتجع</option>'
       + '<option value="forfeited"'+(d.status==='forfeited'?' selected':'')+'>مُصادر</option>'
       + '</select></div>'
+      + '<div class="fld" id="ed-refund-date-wrap" style="display:'+(d.status==='refunded'?'block':'none')+'"><label>'+(LANG==='ar'?'تاريخ الإرجاع':'Refund Date')+'</label>'
+      + '<input class="inp" id="ed-refund-date" type="date" value="'+((d.refund_date||'').slice(0,10))+'" placeholder="YYYY-MM-DD">'
+      + '<small style="display:block;color:var(--muted);font-size:.65rem;margin-top:3px">'+(LANG==='ar'?'تاريخ إرجاع المبلغ للمستأجر':'Date refund was given to tenant')+'</small></div>'
       + '<div class="fld"><label>'+(LANG==='ar'?'ملاحظات':'Notes')+'</label>'
       + '<input class="inp" id="ed-notes" value="'+(d.notes||'')+'" placeholder="'+(LANG==='ar'?'اختياري':'Optional')+'"></div>'
       + '<div style="display:flex;gap:8px;margin-top:16px">'
@@ -817,7 +821,8 @@ async function saveEditDeposit(depId) {
     };
     // لو مرتجع → احفظ تاريخ الإرجاع تلقائياً
     if(status === 'refunded') {
-      updateData.refund_date = new Date().toISOString().slice(0,10);
+      var rdInput = document.getElementById('ed-refund-date');
+      updateData.refund_date = (rdInput && rdInput.value) ? rdInput.value : new Date().toISOString().slice(0,10);
     } else {
       updateData.refund_date = null;
     }
