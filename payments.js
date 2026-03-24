@@ -156,7 +156,7 @@ async function saveRent(btn) {
 
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   try{
-    var { data: unit } = await sb.from('units').select('id').eq('apartment',apt).eq('room',room).single();
+    var { data: unit } = await sb.from('units').select('id,language,phone,phone2,tenant_name').eq('apartment',apt).eq('room',room).single();
     if(!unit) throw new Error(LANG==='ar'?'الوحدة غير موجودة':'Unit not found');
 
     var tNum = Number(document.getElementById('r-tenant-num').value||0);
@@ -182,7 +182,6 @@ async function saveRent(btn) {
     if(error) throw error;
 
     // حفظ الإيصال في DB مربوطاً بالدفعة
-    var _lu2 = window._lastUnit || {};
     var rcptNo = 'W-' + Date.now().toString().slice(-6);
     await sb.from('receipts').insert({
       receipt_no:     rcptNo,
@@ -190,12 +189,12 @@ async function saveRent(btn) {
       unit_id:        unit.id,
       apartment:      apt,
       room:           room,
-      tenant_name:    (_lu2.tenant_name || '').split(' ')[0] || '',
+      tenant_name:    (unit.tenant_name || '').split(' ')[0] || '',
       amount:         amt,
       payment_month:  (mon||'').slice(0,7),
       payment_date:   paymentDate,
       payment_method: meth,
-      lang:           _lu2.language || 'ar',
+      lang:           unit.language || 'ar',
     });
 
     toast(LANG==='ar'?'تم تسجيل الدفعة ✓':'Payment recorded ✓','ok');
@@ -203,12 +202,11 @@ async function saveRent(btn) {
     try{ localStorage.setItem('lastPayApt', apt); localStorage.setItem('lastPayRoom', room); }catch(e){}
     // Show receipt option
     var tenantName = document.getElementById('r-tenant-badge') ? (document.getElementById('r-tenant-badge').textContent||'').replace('👤 ','') : '';
-    var _lu = window._lastUnit || {};
     window._lastReceipt = {apt:apt, room:room, amount:amt, month:mon, date:paymentDate,
       payment_method: meth,
-      tenant: tenantName,
-      phone: _lu.phone || _lu.phone2 || '',
-      lang: _lu.language || 'ar',
+      tenant: tenantName || unit.tenant_name || '',
+      phone: unit.phone || unit.phone2 || '',
+      lang: unit.language || 'ar',
       receiptNo: rcptNo
     };
     var rc = document.getElementById('receipt-toast');
