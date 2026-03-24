@@ -10,9 +10,11 @@
 // ══════════════════════════════════════════════════════
 
 function _pickDepositForReport(depRows, monYM) {
-  // Each deposit counted in its own deposit_received_date month
+  // Each deposit counted in its deposit_received_date month
+  // RULE: refunded deposits are EXCLUDED (they went back to tenant)
   var rows = Array.isArray(depRows) ? depRows : [];
   return rows.reduce(function(s, d) {
+    if(d.status === 'refunded') return s;        // مُرتجع → لا يُحتسب
     var rd = String(d.deposit_received_date || '').slice(0, 7);
     return rd === monYM ? s + (Number(d.amount) || 0) : s;
   }, 0);
@@ -554,7 +556,7 @@ async function getFinancialSummaryData(monYM){
   var end = monthEnd(monYM);
   var [rentR, depR, expR, ownerR] = await Promise.all([
     sb.from('rent_payments').select('amount').gte('payment_date', start).lte('payment_date', end),
-    sb.from('deposits').select('amount').gte('deposit_received_date', start).lte('deposit_received_date', end),
+    sb.from('deposits').select('amount,status').gte('deposit_received_date', start).lte('deposit_received_date', end),
     sb.from('expenses').select('amount').eq('period_month', (monYM||'').slice(0,7)+'-01'),
     sb.from('owner_payments').select('amount').eq('period_month', (monYM||'').slice(0,7)+'-01')
   ]);
@@ -635,7 +637,7 @@ async function loadAnnual(btn) {
       sb.from('rent_payments').select('amount,payment_month'),
       sb.from('expenses').select('amount,period_month'),
       sb.from('owner_payments').select('amount,period_month'),
-      sb.from('deposits').select('amount,deposit_received_date'),
+      sb.from('deposits').select('amount,deposit_received_date,status'),
       // Previous year rent (for YoY comparison)
       sb.from('rent_payments').select('amount,payment_month')
     ]);
@@ -653,7 +655,7 @@ async function loadAnnual(btn) {
     var rows = months.map(function(m,i){
       var prefix = year+'-'+m;
       var rent  = pays.filter(function(p){return p.payment_month&&p.payment_month.startsWith(prefix);}).reduce(function(s,p){return s+p.amount;},0);
-      var dep   = deps.filter(function(d){return String(d.deposit_received_date||'').slice(0,7)===prefix;}).reduce(function(s,d){return s+(d.amount||0);},0);
+      var dep   = deps.filter(function(d){ if(d.status==='refunded') return false; return String(d.deposit_received_date||'').slice(0,7)===prefix; }).reduce(function(s,d){return s+(d.amount||0);},0);
       var coll  = rent + dep;
       var exp   = exps.filter(function(e){return String(e.period_month||'').startsWith(prefix);}).reduce(function(s,e){return s+e.amount;},0);
       var own   = owns.filter(function(o){return String(o.period_month||'').startsWith(prefix);}).reduce(function(s,o){return s+o.amount;},0);
@@ -674,7 +676,7 @@ async function loadAnnual(btn) {
     }).join('');
 
     var tRent = pays.reduce(function(s,p){return s+(p.amount||0);},0);
-    var tDep  = deps.filter(function(d){return String(d.deposit_received_date||'').startsWith(String(year));}).reduce(function(s,d){return s+(d.amount||0);},0);
+    var tDep  = deps.filter(function(d){ if(d.status==='refunded') return false; return String(d.deposit_received_date||'').startsWith(String(year)); }).reduce(function(s,d){return s+(d.amount||0);},0);
     var tExp  = exps.reduce(function(s,e){return s+e.amount;},0);
     var tOwn  = owns.reduce(function(s,o){return s+o.amount;},0);
     var tNet  = tRent + tDep - tExp - tOwn;

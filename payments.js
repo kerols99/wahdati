@@ -156,7 +156,15 @@ async function saveRent(btn) {
 
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   try{
-    var { data: unit } = await sb.from('units').select('id,language,phone,phone2,tenant_name').eq('apartment',apt).eq('room',room).single();
+    var { data: unit } = await sb.from('units')
+      .select('id,language,phone,phone2,tenant_name')
+      .eq('apartment', parseInt(apt)).eq('room', room).maybeSingle();
+    if(!unit && !isNaN(room)) {
+      var { data: unit2 } = await sb.from('units')
+        .select('id,language,phone,phone2,tenant_name')
+        .eq('apartment', parseInt(apt)).eq('room', parseInt(room)).maybeSingle();
+      unit = unit2;
+    }
     if(!unit) throw new Error(LANG==='ar'?'الوحدة غير موجودة':'Unit not found');
 
     var tNum = Number(document.getElementById('r-tenant-num').value||0);
@@ -727,6 +735,8 @@ async function saveEditPayment(payId, unitId) {
 async function deletePayment(payId, unitId) {
   try {
   if(!confirm(LANG==='ar'?'هل تريد حذف هذه الدفعة؟':'Delete this payment?')) return;
+    // حذف الإيصال المرتبط أولاً
+    await sb.from('receipts').delete().eq('payment_id', payId);
     var { error } = await sb.from('rent_payments').delete().eq('id', payId);
     if(error){ toast((LANG==='ar'?'خطأ: ':'Error: ')+error.message,'err'); return; }
     toast(LANG==='ar'?'تم الحذف ✓':'Deleted ✓','ok');
@@ -1063,7 +1073,7 @@ async function printOwnerSettlement() {
       });
     });
     var totalRent = pays.reduce(function(s,p){return s+(Number(p.amount)||0);},0);
-    var totalDeps = deps.reduce(function(s,d){return s+(Number(d.amount)||0);},0);
+    var totalDeps = deps.reduce(function(s,d){ if(d.status==='refunded') return s; return s+(Number(d.amount)||0); },0);
     var totalExp  = exps.reduce(function(s,e){return s+(Number(e.amount)||0);},0);
     var totalOwn  = owns.reduce(function(s,o){return s+(Number(o.amount)||0);},0);
     var balance   = totalRent + totalDeps - totalExp - totalOwn;
@@ -1140,7 +1150,7 @@ async function printOwnerSettlement() {
         return String(a.room||'').localeCompare(String(b.room||''),undefined,{numeric:true,sensitivity:'base'});
       });
       var aptPayTotal = aptPays.reduce(function(s,p){return s+(Number(p.amount)||0);},0);
-      var aptDepTotal = aptDeps.reduce(function(s,d){return s+(Number(d.amount)||0);},0);
+      var aptDepTotal = aptDeps.filter(function(d){return d.status!=='refunded';}).reduce(function(s,d){return s+(Number(d.amount)||0);},0);
       var aptTotal    = aptPayTotal + aptDepTotal;
 
       // Header bar

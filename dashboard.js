@@ -58,7 +58,7 @@ async function loadSmartDash(ym) {
       sb.from('rent_payments').select('amount,unit_id').gte('payment_date',ym+'-01').lte('payment_date',monthEnd(ym)),
       // ACCRUAL — for "remaining" / unit status badges
       sb.from('rent_payments').select('amount,unit_id').like('payment_month', ym + '%'),
-      sb.from('deposits').select('amount,deposit_received_date').gte('deposit_received_date',ym+'-01').lte('deposit_received_date',monthEnd(ym)),
+      sb.from('deposits').select('amount,deposit_received_date,status').gte('deposit_received_date',ym+'-01').lte('deposit_received_date',monthEnd(ym)),
       sb.from('units').select('id,apartment,room,monthly_rent,is_vacant,unit_status,start_date'),
       // Previous month cash (for comparison)
       sb.from('rent_payments').select('amount').gte('payment_date',prevYM+'-01').lte('payment_date',monthEnd(prevYM)),
@@ -94,7 +94,7 @@ async function loadSmartDash(ym) {
 
     // CASH totals (payment_date based)
     var totalCashRent = cashPays.reduce(function(s,p){return s+(p.amount||0);},0);
-    var totalDeps     = deps.reduce(function(s,d){return s+(d.amount||0);},0);
+    var totalDeps     = deps.reduce(function(s,d){ if(d.status==='refunded') return s; return s+(d.amount||0); },0);
     var cashTotal     = totalCashRent + totalDeps;
     var totalExpenses = exps.reduce(function(s,e){return s+(e.amount||0);},0);
     var totalOwner    = owners.reduce(function(s,o){return s+(o.amount||0);},0);
@@ -214,7 +214,7 @@ async function loadCollReport(btn) {
 
     // Totals
     var totalRent  = pays.reduce(function(s,p){return s+(p.amount||0);},0);
-    var totalDep   = deps.reduce(function(s,d){return s+(d.amount||0);},0);
+    var totalDep   = deps.reduce(function(s,d){ if(d.status==='refunded') return s; return s+(d.amount||0); },0);
     var totalCash  = totalRent + totalDep;
     var totalExp   = exps.reduce(function(s,e){return s+(e.amount||0);},0);
     var totalOwner = owns.reduce(function(s,o){return s+(o.amount||0);},0);
