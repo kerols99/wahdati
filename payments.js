@@ -69,13 +69,13 @@ async function autoFillRent() {
     try {
       // Normalize room — try as-is first, then as integer
       var { data: unit } = await sb.from('units')
-        .select('id,monthly_rent,rent1,rent2,tenant_name,tenant_name2,phone,phone2,start_date')
+        .select('id,monthly_rent,rent1,rent2,tenant_name,tenant_name2,phone,phone2,language,start_date')
         .eq('apartment', parseInt(apt)).eq('room', room).maybeSingle();
 
       // If not found as string, try as integer
       if(!unit && !isNaN(room)) {
         var { data: unit2 } = await sb.from('units')
-          .select('id,monthly_rent,rent1,rent2,tenant_name,tenant_name2,start_date')
+          .select('id,monthly_rent,rent1,rent2,tenant_name,tenant_name2,phone,phone2,language,start_date')
           .eq('apartment', parseInt(apt)).eq('room', parseInt(room)).maybeSingle();
         unit = unit2;
       }
@@ -165,7 +165,8 @@ async function saveRent(btn) {
     // RULE: always save BOTH fields
     // payment_month = when rent is DUE (accrual basis)
     // payment_date  = when cash was RECEIVED (cash basis)
-    var { error } = await sb.from('rent_payments').insert({
+    var meth = document.getElementById('r-meth').value;
+    var { data: payInserted, error } = await sb.from('rent_payments').insert({
       unit_id: unit.id,
       apartment: apt,
       room: room,
@@ -173,12 +174,30 @@ async function saveRent(btn) {
       amount_paid: amt,
       payment_month: mon,
       payment_date: paymentDate,
-      payment_method: document.getElementById('r-meth').value,
+      payment_method: meth,
       received_by: ME?.id||null,
       tenant_num: tNum||null,
       notes: document.getElementById('r-notes').value.trim()||null,
-    });
+    }).select('id').single();
     if(error) throw error;
+
+    // حفظ الإيصال في DB مربوطاً بالدفعة
+    var _lu2 = window._lastUnit || {};
+    var rcptNo = 'W-' + Date.now().toString().slice(-6);
+    await sb.from('receipts').insert({
+      receipt_no:     rcptNo,
+      payment_id:     payInserted?.id || null,
+      unit_id:        unit.id,
+      apartment:      apt,
+      room:           room,
+      tenant_name:    (_lu2.tenant_name || '').split(' ')[0] || '',
+      amount:         amt,
+      payment_month:  (mon||'').slice(0,7),
+      payment_date:   paymentDate,
+      payment_method: meth,
+      lang:           _lu2.language || 'ar',
+    });
+
     toast(LANG==='ar'?'تم تسجيل الدفعة ✓':'Payment recorded ✓','ok');
     // Remember last used unit for quick next entry
     try{ localStorage.setItem('lastPayApt', apt); localStorage.setItem('lastPayRoom', room); }catch(e){}
@@ -186,9 +205,11 @@ async function saveRent(btn) {
     var tenantName = document.getElementById('r-tenant-badge') ? (document.getElementById('r-tenant-badge').textContent||'').replace('👤 ','') : '';
     var _lu = window._lastUnit || {};
     window._lastReceipt = {apt:apt, room:room, amount:amt, month:mon, date:paymentDate,
-      payment_method: document.getElementById('r-meth').value,
+      payment_method: meth,
       tenant: tenantName,
-      phone: _lu.phone || _lu.phone2 || ''
+      phone: _lu.phone || _lu.phone2 || '',
+      lang: _lu.language || 'ar',
+      receiptNo: rcptNo
     };
     var rc = document.getElementById('receipt-toast');
     if(!rc) {
@@ -867,8 +888,8 @@ function printPaymentReceipt() {
   var r = window._lastReceipt;
   if(!r) return;
 
-  // لو اللغة إنجليزي → إنجليزي، عربي → عربي
-  var isEn = (LANG !== 'ar');
+  // لغة الإيصال = لغة المستأجر المسجّلة (مش لغة التطبيق)
+  var isEn = (r.lang === 'en');
   var dateStr = r.date
     ? new Date(r.date).toLocaleDateString(isEn ? 'en-GB' : 'ar-AE')
     : new Date().toLocaleDateString(isEn ? 'en-GB' : 'ar-AE');
@@ -877,7 +898,7 @@ function printPaymentReceipt() {
   var methodMapEn = {cash:'Cash', transfer:'Bank Transfer', cheque:'Cheque', 'Cash':'Cash', 'Bank Transfer':'Bank Transfer', 'Cheque':'Cheque'};
   var methodLabel = isEn ? (methodMapEn[r.payment_method] || r.payment_method || 'Cash')
                          : (methodMap[r.payment_method]   || r.payment_method || 'نقداً');
-  var receiptNum = 'W-' + Date.now().toString().slice(-6);
+  var receiptNum = r.receiptNo || ('W-' + Date.now().toString().slice(-6));
 
   // Save receipt for search
   try {

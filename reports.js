@@ -1294,3 +1294,63 @@ async function loadAptCompare(btn) {
   }
 }
 window.loadAptCompare = loadAptCompare;
+
+// ══════════════════════════════════════════════════════
+// RECEIPTS SEARCH — Supabase
+// ══════════════════════════════════════════════════════
+var _rcptSearchTimer = null;
+async function searchReceipts(q) {
+  clearTimeout(_rcptSearchTimer);
+  _rcptSearchTimer = setTimeout(async function() {
+    var outEl = document.getElementById('receipts-result');
+    if(!outEl) return;
+
+    q = (q||'').trim();
+    if(!q) {
+      outEl.innerHTML = '<div style="text-align:center;padding:32px 16px;color:var(--muted);font-size:.82rem">'+(LANG==='ar'?'اكتب للبحث في الإيصالات':'Type to search receipts')+'</div>';
+      return;
+    }
+
+    outEl.innerHTML = '<div style="text-align:center;padding:20px"><span class="spin"></span></div>';
+
+    try {
+      var query = sb.from('receipts')
+        .select('receipt_no,apartment,room,tenant_name,amount,payment_month,payment_date,payment_method,lang,created_at')
+        .order('created_at', {ascending:false})
+        .limit(50);
+
+      // بحث ذكي حسب نوع الإدخال
+      if(q.startsWith('W-') || q.startsWith('w-')) {
+        query = query.ilike('receipt_no', q+'%');
+      } else if(/^\d+$/.test(q) && q.length <= 4) {
+        // رقم شقة أو غرفة
+        query = query.or('apartment.eq.'+q+',room.eq.'+q);
+      } else {
+        // اسم مستأجر
+        query = query.ilike('tenant_name', '%'+q+'%');
+      }
+
+      var { data, error } = await query;
+      if(error) throw error;
+
+      if(!data || !data.length) {
+        outEl.innerHTML = '<div style="text-align:center;padding:32px 16px;color:var(--muted);font-size:.82rem">📭 '+(LANG==='ar'?'لا توجد نتائج':'No results found')+'</div>';
+        return;
+      }
+
+      var esc = function(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+      var methAr = {cash:'نقداً', Cash:'نقداً', transfer:'تحويل', 'Bank Transfer':'تحويل', cheque:'شيك', Cheque:'شيك'};
+
+      outEl.innerHTML = '<div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">'+data.length+' '+(LANG==='ar'?'نتيجة':'results')+'</div>'
+        + data.map(function(r) {
+            var isEn = r.lang === 'en';
+            var meth = isEn ? (r.payment_method||'') : (methAr[r.payment_method] || r.payment_method || '');
+            return '<div style="background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:13px 14px;margin-bottom:8px">'              +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'                +'<span style="font-family:monospace;font-size:.82rem;font-weight:700;color:var(--accent);background:var(--accent-glow);padding:2px 8px;border-radius:6px">'+esc(r.receipt_no)+'</span>'                +'<span style="font-size:1rem;font-weight:800;color:var(--green)">'+Number(r.amount||0).toLocaleString()+' AED</span>'              +'</div>'              +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:.75rem">'                +'<div><span style="color:var(--muted)">'+(LANG==='ar'?'الشقة / الغرفة':'Apt / Room')+'</span><br><b>'+esc(r.apartment)+' — '+esc(r.room)+'</b></div>'                +(r.tenant_name?'<div><span style="color:var(--muted)">'+(LANG==='ar'?'المستأجر':'Tenant')+'</span><br><b>'+esc(r.tenant_name)+'</b></div>':'')                +'<div><span style="color:var(--muted)">'+(LANG==='ar'?'الشهر':'Month')+'</span><br><b>'+esc(r.payment_month||'')+'</b></div>'                +'<div><span style="color:var(--muted)">'+(LANG==='ar'?'التاريخ':'Date')+'</span><br><b>'+(r.payment_date||'').slice(0,10)+'</b></div>'                +(meth?'<div><span style="color:var(--muted)">'+(LANG==='ar'?'الطريقة':'Method')+'</span><br><b>'+esc(meth)+'</b></div>':'')              +'</div>'              +'</div>';
+          }).join('');
+
+    } catch(e) {
+      outEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:.8rem">خطأ: '+e.message+'</div>';
+    }
+  }, 400);
+}
+window.searchReceipts = searchReceipts;

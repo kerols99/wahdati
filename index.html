@@ -386,6 +386,7 @@
 <button class="tab" data-tab-target="rAnn" id="rtab-ann">📊 سنوي</button>
 <button class="tab" data-tab-target="rStats" id="rtab-stats">📈 إحصائيات</button>
 <button class="tab" data-tab-target="rCompare" id="rtab-compare">🏆 مقارنة</button>
+<button class="tab" data-tab-target="rReceipts" id="rtab-receipts">🧾 إيصالات</button>
 </div>
 <div class="tpanel active" id="rMon">
 <div style="background:var(--accent)12;border:1px solid var(--accent)33;border-radius:10px;padding:7px 11px;margin-bottom:10px;font-size:.72rem;color:var(--muted)">
@@ -609,6 +610,22 @@
 <div id="drawerContent"></div>
 </div>
 <!-- ══ PDF OVERLAY ══ -->
+<div class="tpanel" id="rReceipts">
+<div class="sh" style="margin-bottom:12px">
+  <div>
+    <h3 id="h-receipts" style="font-size:1rem;font-weight:800">🧾 بحث في الإيصالات</h3>
+    <div style="font-size:.68rem;color:var(--muted);margin-top:2px" id="sub-receipts">ابحث بالرقم · الاسم · الشقة · الغرفة</div>
+  </div>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:12px">
+  <input class="inp" id="rcpt-search-input" placeholder="W-303485  أو  Jerome  أو  101" style="flex:1;font-size:.88rem" oninput="searchReceipts(this.value)"/>
+  <button class="btn bg btn-sm" onclick="searchReceipts(document.getElementById('rcpt-search-input').value)" style="width:auto;min-height:unset;padding:11px 14px;margin:0;white-space:nowrap">🔍</button>
+</div>
+<div id="receipts-result">
+  <div style="text-align:center;padding:32px 16px;color:var(--muted);font-size:.82rem">اكتب للبحث في الإيصالات</div>
+</div>
+</div>
+
 <div id="pdfOverlay" style="display:none">
 <div class="pdf-header">
 <button data-click="closePdf" id="btn-close-pdf" style="background:none;border:none;color:var(--text);font-size:1.1rem;cursor:pointer">✕ إغلاق</button>
