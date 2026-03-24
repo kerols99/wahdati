@@ -53,7 +53,7 @@ async function loadSmartDash(ym) {
     // Parallel fetch
     // cash: uses payment_date (actual receipt)
     // accrual: uses payment_month (who paid this month's rent)
-    var [cashPaysRes, accrualPaysRes, depsRes, unitsRes, prevCashRes, prevAccrualRes, departRes, expRes, ownerRes] = await Promise.all([
+    var [cashPaysRes, accrualPaysRes, depsRes, unitsRes, prevCashRes, prevAccrualRes, departRes, expRes, ownerRes, refDepsSmartRes] = await Promise.all([
       // CASH — for dashboard "collected" KPI
       sb.from('rent_payments').select('amount,unit_id').gte('payment_date',ym+'-01').lte('payment_date',monthEnd(ym)),
       // ACCRUAL — for "remaining" / unit status badges
@@ -66,12 +66,16 @@ async function loadSmartDash(ym) {
       sb.from('rent_payments').select('amount').like('payment_month', prevYM + '%'),
       sb.from('moves').select('unit_id').eq('type','depart').gte('move_date',ym+'-01').lte('move_date',monthEnd(ym)),
       sb.from('expenses').select('amount').eq('period_month', (ym||'').slice(0,7)+'-01'),
-      sb.from('owner_payments').select('amount').eq('period_month', (ym||'').slice(0,7)+'-01')
+      sb.from('owner_payments').select('amount').eq('period_month', (ym||'').slice(0,7)+'-01'),
+      // Refunded deposits this month by refund_date
+      sb.from('deposits').select('amount,refund_date')
+        .eq('status','refunded').gte('refund_date',ym+'-01').lte('refund_date',monthEnd(ym))
     ]);
 
     var cashPays     = cashPaysRes.data||[];
     var accrualPays  = accrualPaysRes.data||[];
     var deps         = depsRes.data||[];
+    var refDepsSmart = refDepsSmartRes.data||[];
     var units        = unitsRes.data||[];
     var prevCash     = prevCashRes.data||[];
     var prevAccrual  = prevAccrualRes.data||[];
@@ -94,12 +98,13 @@ async function loadSmartDash(ym) {
 
     // CASH totals (payment_date based)
     var totalCashRent = cashPays.reduce(function(s,p){return s+(p.amount||0);},0);
-    var totalDeps     = deps.reduce(function(s,d){ if(d.status==='refunded') return s; return s+(d.amount||0); },0);
+    var totalDeps        = deps.reduce(function(s,d){ return s+(d.amount||0); },0);
+    var totalRefundSmart = refDepsSmart.reduce(function(s,d){ return s+(d.amount||0); },0);
     var cashTotal     = totalCashRent + totalDeps;
     var totalExpenses = exps.reduce(function(s,e){return s+(e.amount||0);},0);
     var totalOwner    = owners.reduce(function(s,o){return s+(o.amount||0);},0);
     var cashOut       = totalExpenses + totalOwner;
-    var net           = cashTotal - cashOut;
+    var net           = cashTotal - totalRefundSmart - cashOut;
     var prevCashTotal = prevCash.reduce(function(s,p){return s+(p.amount||0);},0);
 
     // ACCRUAL totals (payment_month based)
@@ -185,7 +190,7 @@ async function loadCollReport(btn) {
     var prevD = new Date(monYM+'-01'); prevD.setMonth(prevD.getMonth()-1);
     var prevYM = prevD.getFullYear()+'-'+String(prevD.getMonth()+1).padStart(2,'0');
 
-    var [paysRes, depsRes, expsRes, ownsRes, prevRes, unitsRes] = await Promise.all([
+    var [paysRes, depsRes, expsRes, ownsRes, prevRes, unitsRes, refDepsRes] = await Promise.all([
       sb.from('rent_payments')
         .select('unit_id,apartment,room,amount,payment_date,payment_method,payment_month,tenant_num')
         .gte('payment_date',monYM+'-01').lte('payment_date',monthEnd(monYM)).order('apartment').order('room'),
@@ -195,15 +200,19 @@ async function loadCollReport(btn) {
       sb.from('expenses').select('amount,category,description').eq('period_month', (monYM||'').slice(0,7)+'-01'),
       sb.from('owner_payments').select('amount').gte('payment_date',monYM+'-01').lte('payment_date',monthEnd(monYM)),
       sb.from('rent_payments').select('amount').gte('payment_date',prevYM+'-01').lte('payment_date',monthEnd(prevYM)),
-      sb.from('units').select('id,apartment,room,tenant_name,tenant_name2,monthly_rent').eq('is_vacant',false)
+      sb.from('units').select('id,apartment,room,tenant_name,tenant_name2,monthly_rent').eq('is_vacant',false),
+      // Refunded deposits this month by refund_date
+      sb.from('deposits').select('unit_id,apartment,room,amount,refund_date,tenant_name')
+        .eq('status','refunded').gte('refund_date',monYM+'-01').lte('refund_date',monthEnd(monYM))
     ]);
 
-    var pays  = paysRes.data||[];
-    var deps  = depsRes.data||[];
-    var exps  = expsRes.data||[];
-    var owns  = ownsRes.data||[];
-    var prevC = (prevRes.data||[]).reduce(function(s,p){return s+(p.amount||0);},0);
-    var units = unitsRes.data||[];
+    var pays    = paysRes.data||[];
+    var deps    = depsRes.data||[];
+    var exps    = expsRes.data||[];
+    var owns    = ownsRes.data||[];
+    var prevC   = (prevRes.data||[]).reduce(function(s,p){return s+(p.amount||0);},0);
+    var units   = unitsRes.data||[];
+    var refDeps = refDepsRes.data||[];
     var unitMap = {};
     units.forEach(function(u){ unitMap[u.id]=u; });
     deps = deps.map(function(d){ var u = d.unit_id ? unitMap[d.unit_id] : null; return Object.assign({}, d, { apartment: d.apartment || (u && u.apartment) || '—', room: d.room || (u && u.room) || '—', tenant_name: d.tenant_name || (u && (u.tenant_name || u.tenant_name2)) || '—' }); });
@@ -216,9 +225,8 @@ async function loadCollReport(btn) {
     var totalRent  = pays.reduce(function(s,p){return s+(p.amount||0);},0);
     var totalDep   = deps.reduce(function(s,d){ if(d.status==='refunded') return s; return s+(d.amount||0); },0);
     // المُرتجعات في هذا الشهر بـ refund_date
-    var refundedThisMonth = deps.filter(function(d){
-      return d.status==='refunded' && (d.refund_date||'').slice(0,7)===monYM;
-    });
+    // المرتجعات — من query منفصلة بـ refund_date (تشمل تأمينات استُلمت في شهور سابقة)
+    var refundedThisMonth = refDeps;
     var totalRefund = refundedThisMonth.reduce(function(s,d){return s+(d.amount||0);},0);
     var totalCash  = totalRent + totalDep;
     var totalExp   = exps.reduce(function(s,e){return s+(e.amount||0);},0);

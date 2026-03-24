@@ -38,20 +38,27 @@ async function loadMonthly(btn) {
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   try{
     // Parallel fetch — only needed fields for performance
-    var [unitsRes, paysRes, expsRes, ownsRes, depsRes] = await Promise.all([
+    var monStart = (mon||'').slice(0,7)+'-01';
+    var monEnd   = window.monthEnd((mon||'').slice(0,7));
+    var [unitsRes, paysRes, expsRes, ownsRes, depsRes, refundedDepsRes] = await Promise.all([
       sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,is_vacant,start_date,deposit').eq('is_vacant',false).order('apartment'),
       // ACCRUAL: filter rent by payment_month (when rent is DUE)
       sb.from('rent_payments').select('unit_id,amount,apartment,room,payment_month,payment_date,payment_method,notes,tenant_num').like('payment_month', mon + '%'),
-      sb.from('expenses').select('amount,category,description,receipt_no,period_month').eq('period_month', (mon||'').slice(0,7)+'-01'),
-      sb.from('owner_payments').select('amount,period_month,method').eq('period_month', (mon||'').slice(0,7)+'-01'),
-      // Deposits: all records (filtered in JS by deposit_received_date)
+      sb.from('expenses').select('amount,category,description,receipt_no,period_month').eq('period_month', monStart),
+      sb.from('owner_payments').select('amount,period_month,method').eq('period_month', monStart),
+      // Deposits received this month
       sb.from('deposits').select('unit_id,amount,deposit_received_date,status,refund_date,tenant_name,apartment,room')
+        .gte('deposit_received_date', monStart).lte('deposit_received_date', monEnd),
+      // Refunded deposits this month — by refund_date (may have been received in prior months)
+      sb.from('deposits').select('unit_id,amount,refund_date,tenant_name,apartment,room')
+        .eq('status','refunded').gte('refund_date', monStart).lte('refund_date', monEnd)
     ]);
-    var units = unitsRes.data||[];
-    var pays  = paysRes.data||[];
-    var exps  = expsRes.data||[];
-    var owns  = ownsRes.data||[];
-    var deps  = depsRes.data||[];
+    var units        = unitsRes.data||[];
+    var pays         = paysRes.data||[];
+    var exps         = expsRes.data||[];
+    var owns         = ownsRes.data||[];
+    var deps         = depsRes.data||[];
+    var refundedDeps = refundedDepsRes.data||[];
     var monYM = mon.slice(0,7);
 
     // ── Maps ──
@@ -94,10 +101,8 @@ async function loadMonthly(btn) {
       totalRentColl += paidMap[u.id]||0;   // rent collected only
       totalDeps     += depMap[u.id]||0;    // deposit collected this month
     });
-    // المُرتجعات في هذا الشهر (refund_date في الشهر الحالي)
-    var totalRefunds = deps.filter(function(d){
-      return d.status === 'refunded' && (d.refund_date||'').slice(0,7) === monYM;
-    }).reduce(function(s,d){ return s+(Number(d.amount)||0); }, 0);
+    // المُرتجعات في هذا الشهر — query منفصلة بـ refund_date
+    var totalRefunds = refundedDeps.reduce(function(s,d){ return s+(Number(d.amount)||0); }, 0);
     exps.forEach(function(e){ totalExp   += e.amount||0; });
     owns.forEach(function(o){ totalOwner += o.amount||0; });
 
