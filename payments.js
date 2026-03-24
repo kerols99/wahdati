@@ -69,7 +69,7 @@ async function autoFillRent() {
     try {
       // Normalize room — try as-is first, then as integer
       var { data: unit } = await sb.from('units')
-        .select('id,monthly_rent,rent1,rent2,tenant_name,tenant_name2,start_date')
+        .select('id,monthly_rent,rent1,rent2,tenant_name,tenant_name2,phone,phone2,start_date')
         .eq('apartment', parseInt(apt)).eq('room', room).maybeSingle();
 
       // If not found as string, try as integer
@@ -80,6 +80,7 @@ async function autoFillRent() {
         unit = unit2;
       }
       if(!unit) { console.log('autoFillRent: unit not found apt='+apt+' room='+room); return; }
+      window._lastUnit = unit; // cache for receipt WhatsApp
 
       var amtEl   = document.getElementById('r-amt');
       var monEl   = document.getElementById('r-month');
@@ -183,7 +184,12 @@ async function saveRent(btn) {
     try{ localStorage.setItem('lastPayApt', apt); localStorage.setItem('lastPayRoom', room); }catch(e){}
     // Show receipt option
     var tenantName = document.getElementById('r-tenant-badge') ? (document.getElementById('r-tenant-badge').textContent||'').replace('👤 ','') : '';
-    window._lastReceipt = {apt:apt, room:room, amount:amt, month:mon, date:paymentDate, payment_method:document.getElementById('r-meth').value, tenant:tenantName};
+    var _lu = window._lastUnit || {};
+    window._lastReceipt = {apt:apt, room:room, amount:amt, month:mon, date:paymentDate,
+      payment_method: document.getElementById('r-meth').value,
+      tenant: tenantName,
+      phone: _lu.phone || _lu.phone2 || ''
+    };
     var rc = document.getElementById('receipt-toast');
     if(!rc) {
       rc = document.createElement('div');
@@ -191,9 +197,12 @@ async function saveRent(btn) {
       rc.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--surf2);border:1px solid var(--border);border-radius:14px;padding:10px 16px;display:flex;align-items:center;gap:10px;z-index:999;box-shadow:var(--shadow);font-family:var(--font)';
       document.body.appendChild(rc);
     }
-    rc.innerHTML = '<span style="font-size:.8rem">🧾 طباعة إيصال؟</span>'
-      +'<button onclick="printPaymentReceipt();var rt=document.getElementById(\'receipt-toast\');if(rt)rt.style.display=\'none\'" style="padding:5px 12px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer">طباعة</button>'
-      +'<button onclick="var rt=document.getElementById(\'receipt-toast\');if(rt)rt.style.display=\'none\'" style="padding:5px 10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font);font-size:.75rem;cursor:pointer">تجاهل</button>';
+    var rcLabel = LANG==='ar'?'إيصال؟':'Receipt?';
+    var rcPrint  = LANG==='ar'?'طباعة':'Print';
+    rc.innerHTML = '<span style="font-size:.8rem">🧾 '+rcLabel+'</span>'
+      +'<button onclick="printPaymentReceipt();document.getElementById(\'receipt-toast\').style.display=\'none\'" style="padding:5px 12px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-family:var(--font);font-size:.75rem;font-weight:700;cursor:pointer">🖨️ '+rcPrint+'</button>'
+      +'<button onclick="openReceiptSearch()" style="padding:5px 10px;background:var(--surf3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:.75rem;cursor:pointer">🔍</button>'
+      +'<button onclick="document.getElementById(\'receipt-toast\').style.display=\'none\'" style="padding:5px 10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--font);font-size:.75rem;cursor:pointer">✕</button>';
     rc.style.display='flex';
     setTimeout(function(){ if(rc) rc.style.display='none'; }, 8000);
     document.getElementById('r-amt').value='';
@@ -857,61 +866,151 @@ window.quickRegisterDeposit = quickRegisterDeposit;
 function printPaymentReceipt() {
   var r = window._lastReceipt;
   if(!r) return;
-  var dateStr = r.date ? new Date(r.date).toLocaleDateString('ar-AE') : new Date().toLocaleDateString('ar-AE');
+
+  // لو اللغة إنجليزي → إنجليزي، عربي → عربي
+  var isEn = (LANG !== 'ar');
+  var dateStr = r.date
+    ? new Date(r.date).toLocaleDateString(isEn ? 'en-GB' : 'ar-AE')
+    : new Date().toLocaleDateString(isEn ? 'en-GB' : 'ar-AE');
   var monthStr = r.month ? r.month.slice(0,7) : '';
   var methodMap = {cash:'نقداً', transfer:'تحويل بنكي', cheque:'شيك', 'Cash':'نقداً', 'Bank Transfer':'تحويل بنكي', 'Cheque':'شيك'};
-  var methodAr = methodMap[r.payment_method] || r.payment_method || 'نقداً';
+  var methodMapEn = {cash:'Cash', transfer:'Bank Transfer', cheque:'Cheque', 'Cash':'Cash', 'Bank Transfer':'Bank Transfer', 'Cheque':'Cheque'};
+  var methodLabel = isEn ? (methodMapEn[r.payment_method] || r.payment_method || 'Cash')
+                         : (methodMap[r.payment_method]   || r.payment_method || 'نقداً');
   var receiptNum = 'W-' + Date.now().toString().slice(-6);
 
+  // Save receipt for search
+  try {
+    var saved = JSON.parse(localStorage.getItem('receipts')||'[]');
+    saved.unshift({num:receiptNum, apt:r.apt, room:r.room, tenant:r.tenant, amount:r.amount, month:monthStr, date:r.date, method:r.payment_method});
+    if(saved.length > 200) saved = saved.slice(0,200);
+    localStorage.setItem('receipts', JSON.stringify(saved));
+  } catch(e) {}
+
+  // WhatsApp link
+  var waLink = '';
+  if(r.phone) {
+    var phone = String(r.phone).replace(/[^0-9+]/g,'');
+    if(phone.startsWith('0')) phone = '971' + phone.slice(1);
+    var waMsg = isEn
+      ? 'Receipt No: ' + receiptNum + '%0AUnit: Apt ' + r.apt + ' - Room ' + r.room + '%0AAmount: ' + Number(r.amount).toLocaleString() + ' AED%0AMonth: ' + monthStr + '%0ADate: ' + dateStr + '%0AMethod: ' + methodLabel + '%0AThank you.'
+      : 'رقم الإيصال: ' + receiptNum + '%0Aالوحدة: شقة ' + r.apt + ' - غرفة ' + r.room + '%0Aالمبلغ: ' + Number(r.amount).toLocaleString() + ' AED%0Aالشهر: ' + monthStr + '%0Aالتاريخ: ' + dateStr + '%0Aالطريقة: ' + methodLabel + '%0Aشكراً لك.';
+    waLink = 'https://wa.me/' + phone + '?text=' + waMsg;
+  }
+
+  var dir = isEn ? 'ltr' : 'rtl';
   var body = '<style>'
-    +'*{font-family:Arial,sans-serif;direction:rtl}'
-    +'body{padding:30px;color:#111;font-size:14px}'
+    +'*{font-family:Arial,sans-serif;direction:'+dir+'}'
+    +'body{padding:30px;color:#111;font-size:14px;background:#fff}'
     +'.header{text-align:center;border-bottom:3px solid #1a3a6a;padding-bottom:16px;margin-bottom:20px}'
     +'.title{font-size:22px;font-weight:700;color:#1a3a6a}'
     +'.sub{font-size:12px;color:#555;margin-top:4px}'
-    +'.receipt-box{border:2px solid #1a3a6a;border-radius:8px;padding:20px;max-width:400px;margin:0 auto}'
-    +'.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee}'
+    +'.receipt-box{border:2px solid #1a3a6a;border-radius:10px;padding:22px;max-width:420px;margin:0 auto}'
+    +'.row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #eee}'
     +'.row:last-child{border-bottom:none}'
-    +'.lbl{color:#555;font-size:13px}'
-    +'.val{font-weight:700;font-size:13px}'
-    +'.amount-box{text-align:center;background:#e8f5ee;border-radius:8px;padding:16px;margin:16px 0}'
-    +'.amount-big{font-size:28px;font-weight:800;color:#1a7a4a}'
-    +'.footer{text-align:center;margin-top:20px;color:#999;font-size:11px}'
-    +'@media print{button{display:none}}'
+    +'.lbl{color:#666;font-size:13px}'
+    +'.val{font-weight:700;font-size:13px;text-align:'+(isEn?'right':'left')+'}'
+    +'.amount-box{text-align:center;background:#e8f5ee;border-radius:8px;padding:18px;margin:16px 0}'
+    +'.amount-big{font-size:30px;font-weight:800;color:#1a7a4a}'
+    +'.refnum{font-family:monospace;font-size:12px;color:#1a3a6a;background:#f0f4ff;padding:2px 8px;border-radius:4px}'
+    +'.wa-btn{display:block;width:100%;padding:13px;background:#25D366;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;text-align:center;text-decoration:none;margin-top:14px;cursor:pointer}'
+    +'.footer{text-align:center;margin-top:18px;color:#aaa;font-size:11px;line-height:1.6}'
+    +'@media print{.wa-btn{display:none!important}}'
     +'</style>'
     +'<div class="header">'
-      +'<div class="title">Wahdati — وحدتي</div>'
-      +'<div class="sub">إيصال استلام إيجار</div>'
+      +'<div class="title">'+(isEn ? 'Property Management' : 'إدارة العقارات')+'</div>'
+      +'<div class="sub">'+(isEn ? 'Rent Receipt' : 'إيصال استلام إيجار')+'</div>'
     +'</div>'
     +'<div class="receipt-box">'
-      +'<div class="row"><span class="lbl">رقم الإيصال</span><span class="val" style="color:#1a3a6a">'+receiptNum+'</span></div>'
-      +'<div class="row"><span class="lbl">التاريخ</span><span class="val">'+dateStr+'</span></div>'
-      +(r.tenant?'<div class="row"><span class="lbl">المستأجر</span><span class="val">'+r.tenant+'</span></div>':'')
-      +'<div class="row"><span class="lbl">الوحدة</span><span class="val">شقة '+r.apt+' — غرفة '+r.room+'</span></div>'
-      +'<div class="row"><span class="lbl">شهر الإيجار</span><span class="val">'+monthStr+'</span></div>'
-      +'<div class="row"><span class="lbl">طريقة الدفع</span><span class="val">'+methodAr+'</span></div>'
+      +'<div class="row"><span class="lbl">'+(isEn?'Receipt No.':'رقم الإيصال')+'</span><span class="val"><span class="refnum">'+receiptNum+'</span></span></div>'
+      +'<div class="row"><span class="lbl">'+(isEn?'Date':'التاريخ')+'</span><span class="val">'+dateStr+'</span></div>'
+      +(r.tenant?'<div class="row"><span class="lbl">'+(isEn?'Tenant':'المستأجر')+'</span><span class="val">'+r.tenant+'</span></div>':'')
+      +'<div class="row"><span class="lbl">'+(isEn?'Unit':'الوحدة')+'</span><span class="val">'+(isEn?'Apt '+r.apt+' — Room '+r.room:'شقة '+r.apt+' — غرفة '+r.room)+'</span></div>'
+      +'<div class="row"><span class="lbl">'+(isEn?'Rent Month':'شهر الإيجار')+'</span><span class="val">'+monthStr+'</span></div>'
+      +'<div class="row"><span class="lbl">'+(isEn?'Payment Method':'طريقة الدفع')+'</span><span class="val">'+methodLabel+'</span></div>'
       +'<div class="amount-box">'
-        +'<div style="font-size:12px;color:#555;margin-bottom:4px">المبلغ المستلم</div>'
-        +'<div class="amount-big">'+Number(r.amount).toLocaleString()+' AED</div>'
+        +'<div style="font-size:12px;color:#555;margin-bottom:6px">'+(isEn?'Amount Received':'المبلغ المستلم')+'</div>'
+        +'<div class="amount-big">AED '+Number(r.amount).toLocaleString()+'</div>'
       +'</div>'
+      +(waLink ? '<a href="'+waLink+'" target="_blank" class="wa-btn">💬 '+(isEn?'Send via WhatsApp':'إرسال عبر واتساب')+'</a>' : '')
     +'</div>'
     +'<div class="footer">'
-      +'<div>شكراً لك — Wahdati Property Management</div>'
-      +'<div style="margin-top:4px">وُلِّد بتاريخ '+new Date().toLocaleDateString('ar-AE')+'</div>'
+      +'<div>'+(isEn?'Thank you — Property Management':'شكراً لك — إدارة العقارات')+'</div>'
+      +'<div style="margin-top:3px">'+(isEn?'Generated':'وُلِّد')+' '+new Date().toLocaleDateString(isEn?'en-GB':'ar-AE')+'</div>'
     +'</div>';
 
-  // Use pdfOverlay if available, otherwise new window
   var pdfEl = document.getElementById('pdf-content');
   var overlay = document.getElementById('pdfOverlay');
   if(pdfEl && overlay) {
     pdfEl.innerHTML = '<style>body,html{background:#fff;color:#111}</style>' + body;
     overlay.style.display = 'flex';
   } else {
-    var w = window.open('','_blank','width=500,height=700');
-    if(w){ w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>إيصال</title></head><body>'+body+'</body></html>'); w.document.close(); setTimeout(function(){w.print();},400); }
+    var w = window.open('','_blank','width=500,height=750');
+    if(w){ w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title></head><body>'+body+'</body></html>'); w.document.close(); setTimeout(function(){w.print();},400); }
   }
 }
 window.printPaymentReceipt = printPaymentReceipt;
+// ══════════════════════════════════════════════════════
+// RECEIPT SEARCH
+// ══════════════════════════════════════════════════════
+function openReceiptSearch() {
+  var isEn = (LANG !== 'ar');
+  var saved = [];
+  try { saved = JSON.parse(localStorage.getItem('receipts')||'[]'); } catch(e) {}
+
+  var modal = document.createElement('div');
+  modal.id = 'rcpt-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  modal.onclick = function(e){ if(e.target===modal) modal.remove(); };
+
+  function renderList(list) {
+    var el = document.getElementById('rcpt-list');
+    if(!el) return;
+    if(!list.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:.8rem">'+(isEn?'No receipts found':'لا توجد إيصالات')+'</div>'; return; }
+    el.innerHTML = list.map(function(rc){
+      return '<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">'        +'<div>'          +'<div style="font-size:.8rem;font-weight:700;color:var(--accent);font-family:monospace">'+rc.num+'</div>'          +'<div style="font-size:.72rem;color:var(--text2);margin-top:1px">'+(isEn?'Apt':'شقة')+' '+rc.apt+' — '+(isEn?'Room':'غرفة')+' '+rc.room+(rc.tenant?' · '+rc.tenant:'')+'</div>'          +'<div style="font-size:.68rem;color:var(--muted)">'+rc.month+' · '+rc.date+'</div>'        +'</div>'        +'<div style="font-weight:700;font-size:.88rem;color:var(--green);flex-shrink:0">'+(Number(rc.amount)||0).toLocaleString()+' AED</div>'        +'</div>';
+    }).join('');
+  }
+
+  var inner = document.createElement('div');
+  inner.style.cssText = 'background:var(--surf);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;padding:0 0 32px';
+  inner.onclick = function(e){ e.stopPropagation(); };
+
+  var header = document.createElement('div');
+  header.style.cssText = 'padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center';
+  header.innerHTML = '<div style="font-size:.95rem;font-weight:700">🔍 '+(isEn?'Search Receipts':'بحث في الإيصالات')+'</div>'
+    +'<button id="rcpt-close-btn" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer">✕</button>';
+
+  var searchWrap = document.createElement('div');
+  searchWrap.style.padding = '12px 16px';
+  var inp = document.createElement('input');
+  inp.id = 'rcpt-search-inp';
+  inp.placeholder = isEn ? 'Receipt No., tenant, room...' : 'رقم الإيصال، اسم، غرفة...';
+  inp.style.cssText = 'width:100%;padding:10px 13px;background:var(--surf2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--font);font-size:.88rem;outline:none;direction:'+( isEn?'ltr':'rtl');
+  inp.addEventListener('input', function() {
+    var q = this.value.toLowerCase();
+    var all = [];
+    try { all = JSON.parse(localStorage.getItem('receipts')||'[]'); } catch(e) {}
+    var filtered = q ? all.filter(function(r){ return JSON.stringify(r).toLowerCase().includes(q); }) : all;
+    renderList(filtered.slice(0,50));
+  });
+  searchWrap.appendChild(inp);
+
+  var list = document.createElement('div');
+  list.id = 'rcpt-list';
+
+  header.querySelector('#rcpt-close-btn').addEventListener('click', function(){ modal.remove(); });
+  inner.appendChild(header);
+  inner.appendChild(searchWrap);
+  inner.appendChild(list);
+  modal.appendChild(inner);
+  document.body.appendChild(modal);
+
+  renderList(saved.slice(0,50));
+  setTimeout(function(){ inp.focus(); }, 100);
+}
+window.openReceiptSearch = openReceiptSearch;
+
 
 // ══════════════════════════════════════════════════════
 // OWNER SETTLEMENT PDF
