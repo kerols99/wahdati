@@ -329,7 +329,7 @@ async function calcOwnerBalance() {
     var totalRent = (pays||[]).reduce(function(s,p){return s+(p.amount||0);},0);
     var totalExp  = (exps||[]).reduce(function(s,e){return s+(e.amount||0);},0);
     var prevPaid  = (prevOwn||[]).reduce(function(s,o){return s+(o.amount||0);},0);
-    var available = totalRent + totalDeps - totalExp - prevPaid;
+    var available = totalRent + totalDeps - totalRefunds - totalExp - prevPaid;
 
     display.textContent = available.toLocaleString() + ' AED';
     display.style.color = available > 0 ? 'var(--green)' : 'var(--red)';

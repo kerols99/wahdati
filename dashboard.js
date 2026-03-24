@@ -190,7 +190,7 @@ async function loadCollReport(btn) {
         .select('unit_id,apartment,room,amount,payment_date,payment_method,payment_month,tenant_num')
         .gte('payment_date',monYM+'-01').lte('payment_date',monthEnd(monYM)).order('apartment').order('room'),
       sb.from('deposits')
-        .select('unit_id,apartment,room,amount,deposit_received_date,tenant_name,status')
+        .select('unit_id,apartment,room,amount,deposit_received_date,tenant_name,status,refund_date')
         .gte('deposit_received_date',monYM+'-01').lte('deposit_received_date',monthEnd(monYM)),
       sb.from('expenses').select('amount,category,description').eq('period_month', (monYM||'').slice(0,7)+'-01'),
       sb.from('owner_payments').select('amount').gte('payment_date',monYM+'-01').lte('payment_date',monthEnd(monYM)),
@@ -215,10 +215,15 @@ async function loadCollReport(btn) {
     // Totals
     var totalRent  = pays.reduce(function(s,p){return s+(p.amount||0);},0);
     var totalDep   = deps.reduce(function(s,d){ if(d.status==='refunded') return s; return s+(d.amount||0); },0);
+    // المُرتجعات في هذا الشهر بـ refund_date
+    var refundedThisMonth = deps.filter(function(d){
+      return d.status==='refunded' && (d.refund_date||'').slice(0,7)===monYM;
+    });
+    var totalRefund = refundedThisMonth.reduce(function(s,d){return s+(d.amount||0);},0);
     var totalCash  = totalRent + totalDep;
     var totalExp   = exps.reduce(function(s,e){return s+(e.amount||0);},0);
     var totalOwner = owns.reduce(function(s,o){return s+(o.amount||0);},0);
-    var net        = totalCash - totalExp - totalOwner;
+    var net        = totalCash - totalRefund - totalExp - totalOwner;
 
     // Group payments by apartment
     var aptGroups = {};
@@ -256,6 +261,10 @@ async function loadCollReport(btn) {
       +'<div style="font-size:.6rem;color:var(--muted);margin-bottom:2px">🔒 تأمينات محصّلة</div>'
       +'<div style="font-weight:800;font-size:.95rem;color:var(--accent)">'+totalDep.toLocaleString()+' AED</div>'
       +'<div style="font-size:.62rem;color:var(--muted);margin-top:1px">'+deps.length+' تأمين</div></div>';
+    if(totalRefund>0) html += '<div style="background:var(--red-bg);border-radius:12px;padding:11px 13px;border-right:3px solid var(--red)">'
+      +'<div style="font-size:.6rem;color:var(--muted);margin-bottom:2px">↩️ تأمين مُرتجع</div>'
+      +'<div style="font-weight:800;font-size:.95rem;color:var(--red)">- '+totalRefund.toLocaleString()+' AED</div>'
+      +'<div style="font-size:.62rem;color:var(--muted);margin-top:1px">'+refundedThisMonth.length+' مُرتجع</div></div>';
     html += '<div style="background:var(--surf2);border-radius:12px;padding:11px 13px;border-right:3px solid var(--amber)">'
       +'<div style="font-size:.6rem;color:var(--muted);margin-bottom:2px">💰 إجمالي الكاش</div>'
       +'<div style="font-weight:800;font-size:.95rem;color:var(--amber)">'+totalCash.toLocaleString()+' AED</div>'
@@ -335,6 +344,10 @@ async function loadCollReport(btn) {
       });
       html += '</div>';
     }
+
+    // قسم التأمينات المُرتجعة
+    if(refundedThisMonth.length > 0) {
+      html += '<div style="background:var(--red-bg);border:1px solid var(--red)44;border-radius:12px;padding:0;overflow:hidden;margin-bottom:10px">'        +'<div style="padding:10px 14px;border-bottom:1px solid var(--red)33;font-weight:700;font-size:.85rem">↩️ تأمينات مُرتجعة ('+refundedThisMonth.length+')</div>';      refundedThisMonth.forEach(function(d){        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border)55">'          +'<div>'            +'<div style="font-size:.78rem;font-weight:700">'+d.apartment+' — '+d.room+'</div>'            +'<div style="font-size:.68rem;color:var(--muted)">'+( d.tenant_name||'—')+'</div>'            +(d.refund_date?'<div style="font-size:.65rem;color:var(--muted)">↩️ '+(d.refund_date||'').slice(0,10)+'</div>':'')          +'</div>'          +'<div style="font-weight:800;color:var(--red);font-size:.9rem">- '+(d.amount||0).toLocaleString()+' AED</div>'          +'</div>';      });      html += '</div>';    }
 
     if(!pays.length && !deps.length) {
       html = '<div style="text-align:center;padding:40px 20px;color:var(--muted)">'
