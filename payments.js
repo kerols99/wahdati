@@ -418,18 +418,25 @@ async function saveDep(btn) {
       btn.disabled=false; btn.innerHTML=orig; return;
     }
 
+    var depStatus = document.getElementById('d-status').value;
+    var depRefundDate = null;
+    if(depStatus === 'refunded') {
+      var rdEl = document.getElementById('d-refund-date-new');
+      depRefundDate = (rdEl && rdEl.value) ? rdEl.value : new Date().toISOString().slice(0,10);
+    }
     var { error } = await sb.from('deposits').insert({
       unit_id: unit.id,
       apartment: apt,
       room: room,
       tenant_name: document.getElementById('d-name').value.trim()||null,
       amount: amt,
-      status: document.getElementById('d-status').value,
+      status: depStatus,
       refund_amount: Number(document.getElementById('d-ref').value||0),
       deduction_amount: Number(document.getElementById('d-ded').value||0),
       deduction_reason: document.getElementById('d-why').value.trim()||null,
       notes: document.getElementById('d-notes').value.trim()||null,
       deposit_received_date: receivedDate,
+      refund_date: depRefundDate,
     });
     if(error) throw error;
     toast(LANG==='ar'?'تم تسجيل التأمين ✓':'Deposit recorded ✓','ok');
@@ -877,27 +884,39 @@ function quickRegisterDeposit(apt, room, amount, tenantName) {
       else depTab.click();
     }
 
-    // Fill all deposit form fields
+    // Fill all deposit form fields + trigger autoFill
     var fill = function(id, val){
       var el = document.getElementById(id);
       if(el) { el.value = val; }
     };
 
-    fill('d-apt',    apt);
-    fill('d-room',   room);
     fill('d-amt',    amount);
-    fill('d-name',   tenantName||'');
     fill('d-status', 'held');
 
-    // Use tenant's start_date as received date (when they moved in)
-    // Falls back to today only if no start_date
-    var dateEl = document.getElementById('d-date');
-    if(dateEl) {
-      var depDate = (tenantName && tenantName.__startDate) ? tenantName.__startDate
-                  : (window._qrd && window._qrd.startDate) ? window._qrd.startDate
-                  : new Date().toISOString().slice(0,10);
-      dateEl.value = depDate ? depDate.slice(0,10) : new Date().toISOString().slice(0,10);
+    // Set apt + room then trigger autoFillDepDate to fetch name + date from DB
+    var aptEl  = document.getElementById('d-apt');
+    var roomEl = document.getElementById('d-room');
+    if(aptEl)  aptEl.value  = apt;
+    if(roomEl) roomEl.value = room;
+
+    // Clear old values so autoFill can overwrite
+    fill('d-name', tenantName||'');
+    fill('d-date', '');
+
+    // Trigger autoFillDepDate — fetches tenant name + start_date from DB
+    if(window.autoFillDepDate) {
+      window.autoFillDepDate();
     }
+
+    // Fallback: if autoFill doesn't fire, set date from _qrd.startDate
+    setTimeout(function(){
+      var dateEl = document.getElementById('d-date');
+      if(dateEl && !dateEl.value) {
+        var depDate = (window._qrd && window._qrd.startDate) ? window._qrd.startDate
+                    : new Date().toISOString().slice(0,10);
+        dateEl.value = depDate ? depDate.slice(0,10) : '';
+      }
+    }, 600);
 
     // Visual feedback on amount field
     var amtEl = document.getElementById('d-amt');
