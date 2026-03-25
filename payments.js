@@ -1276,7 +1276,7 @@ async function printOwnerSettlement() {
               return '<tr>'
                 + tdS('<b>'+esc(String(d.room||''))+'</b>')
                 + tdS(esc(d.tenant_name||'—'),'color:#555')
-                + tdS('- '+fmtAmt(d.amount||0),'font-weight:700;color:#c0392b')
+                + tdS('- '+fmtAmt(d.refund_amount||0),'font-weight:700;color:#c0392b')
                 + tdS(esc((d.refund_date||'').slice(0,10)),'color:#777;font-size:11px')
                 + '</tr>';
             }).join('')
