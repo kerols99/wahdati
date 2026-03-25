@@ -353,7 +353,7 @@ var now = new Date();
 
   // Build deposit section — shows ALL deposit records for this unit
   var depHTML = '';
-  var totalDepHeld = (depRows||[]).filter(function(d){return d.status!=='refunded';}).reduce(function(s,d){return s+(d.amount||0);},0);
+  var totalDepHeld = (depRows||[]).filter(function(d){return d.status!=='refunded';}).reduce(function(s,d){return s+((d.amount||0)-(d.refund_amount||0));},0);
   if((depRows||[]).length > 0) {
     var depRowsHTML = (depRows||[]).map(function(d) {
       var sCol = d.status==='held'?'var(--amber)':d.status==='refunded'?'var(--green)':'var(--red)';

@@ -68,8 +68,8 @@ async function loadSmartDash(ym) {
       sb.from('expenses').select('amount').eq('period_month', (ym||'').slice(0,7)+'-01'),
       sb.from('owner_payments').select('amount').eq('period_month', (ym||'').slice(0,7)+'-01'),
       // Refunded deposits this month by refund_date
-      sb.from('deposits').select('amount,refund_amount,refund_date,apartment,room,tenant_name,deposit_received_date')
-        .eq('status','refunded')
+      sb.from('deposits').select('amount,refund_amount,refund_date,apartment,room,tenant_name,deposit_received_date,status')
+        .gt('refund_amount', 0)
     ]);
 
     var cashPays     = cashPaysRes.data||[];
@@ -104,7 +104,7 @@ async function loadSmartDash(ym) {
     // CASH totals (payment_date based)
     var totalCashRent = cashPays.reduce(function(s,p){return s+(p.amount||0);},0);
     var totalDeps        = deps.reduce(function(s,d){ return s+(d.amount||0); },0);
-    var totalRefundSmart = refDepsSmart.reduce(function(s,d){ return s+(d.amount||0); },0);
+    var totalRefundSmart = refDepsSmart.reduce(function(s,d){ return s+(Number(d.refund_amount)||0); },0);
     var cashTotal     = totalCashRent + totalDeps;
     var totalExpenses = exps.reduce(function(s,e){return s+(e.amount||0);},0);
     var totalOwner    = owners.reduce(function(s,o){return s+(o.amount||0);},0);
@@ -207,8 +207,8 @@ async function loadCollReport(btn) {
       sb.from('rent_payments').select('amount').gte('payment_date',prevYM+'-01').lte('payment_date',monthEnd(prevYM)),
       sb.from('units').select('id,apartment,room,tenant_name,tenant_name2,monthly_rent').eq('is_vacant',false),
       // Refunded deposits this month by refund_date
-      sb.from('deposits').select('unit_id,apartment,room,amount,refund_date,tenant_name')
-        .eq('status','refunded').gte('refund_date',monYM+'-01').lte('refund_date',monthEnd(monYM))
+      sb.from('deposits').select('unit_id,apartment,room,amount,refund_amount,refund_date,tenant_name,deposit_received_date,status')
+        .gt('refund_amount', 0)
     ]);
 
     var pays    = paysRes.data||[];
@@ -237,7 +237,7 @@ async function loadCollReport(btn) {
     // المُرتجعات في هذا الشهر بـ refund_date
     // المرتجعات — من query منفصلة بـ refund_date (تشمل تأمينات استُلمت في شهور سابقة)
     var refundedThisMonth = refDeps;
-    var totalRefund = refundedThisMonth.reduce(function(s,d){return s+(d.amount||0);},0);
+    var totalRefund = refundedThisMonth.reduce(function(s,d){return s+(Number(d.refund_amount)||0);},0);
     var totalCash  = totalRent + totalDep;
     var totalExp   = exps.reduce(function(s,e){return s+(e.amount||0);},0);
     var totalOwner = owns.reduce(function(s,o){return s+(o.amount||0);},0);

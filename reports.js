@@ -50,8 +50,8 @@ async function loadMonthly(btn) {
       sb.from('deposits').select('unit_id,amount,deposit_received_date,status,refund_date,tenant_name,apartment,room')
         .gte('deposit_received_date', monStart).lte('deposit_received_date', monEnd),
       // Refunded deposits this month — by refund_date (may have been received in prior months)
-      sb.from('deposits').select('unit_id,amount,refund_date,tenant_name,apartment,room')
-        .eq('status','refunded').gte('refund_date', monStart).lte('refund_date', monEnd)
+      sb.from('deposits').select('unit_id,amount,refund_amount,refund_date,tenant_name,apartment,room')
+        .gt('refund_amount', 0)
     ]);
     var units        = unitsRes.data||[];
     var pays         = paysRes.data||[];
@@ -102,7 +102,7 @@ async function loadMonthly(btn) {
       totalDeps     += depMap[u.id]||0;    // deposit collected this month
     });
     // المُرتجعات في هذا الشهر — query منفصلة بـ refund_date
-    var totalRefunds = refundedDeps.reduce(function(s,d){ return s+(Number(d.amount)||0); }, 0);
+    var totalRefunds = refundedDeps.reduce(function(s,d){ return s+(Number(d.refund_amount)||0); }, 0);
     exps.forEach(function(e){ totalExp   += e.amount||0; });
     owns.forEach(function(o){ totalOwner += o.amount||0; });
 

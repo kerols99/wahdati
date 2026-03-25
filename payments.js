@@ -316,15 +316,15 @@ async function calcOwnerBalance() {
 
     // المُرتجعات في هذا الشهر (refund_date في الشهر الحالي)
     var { data: refundedDeps } = await sb.from('deposits')
-      .select('amount,deposit_received_date,status,tenant_name,apartment,room,refund_date')
-      .eq('status','refunded')
+      .select('amount,refund_amount,deposit_received_date,status,tenant_name,apartment,room,refund_date')
+      .gt('refund_amount', 0)
       .gte('refund_date', monYM+'-01')
       .lte('refund_date', monthEnd(monYM));
     refundedDeps = refundedDeps || [];
 
     var totalDepsIn  = (deps||[]).filter(function(d){ return d.status !== 'refunded'; })
       .reduce(function(s,d){ return s+(Number(d.amount)||0); }, 0);
-    var totalRefunds = refundedDeps.reduce(function(s,d){ return s+(Number(d.amount)||0); }, 0);
+    var totalRefunds = refundedDeps.reduce(function(s,d){ return s+(Number(d.refund_amount)||0); }, 0);
     var totalDeps    = totalDepsIn;  // للـ KPI cards (تأمينات مستلمة)
 
     // Fetch expenses this month
@@ -831,17 +831,21 @@ async function saveEditDeposit(depId) {
       status: status,
       notes: notes,
     };
+    var rdInput = document.getElementById('ed-refund-date');
+    var dedEl = document.getElementById('ed-ded-amt');
+    var dedAmt = dedEl ? Number(dedEl.value||0) : 0;
+    var refAmt = Number(document.getElementById('ed-ref-back')
+      ? document.getElementById('ed-ref-back').value||0
+      : (amt - dedAmt));
     if(status === 'refunded') {
-      var rdInput = document.getElementById('ed-refund-date');
       updateData.refund_date = (rdInput && rdInput.value) ? rdInput.value : new Date().toISOString().slice(0,10);
-      var dedEl = document.getElementById('ed-ded-amt');
-      var dedAmt = dedEl ? Number(dedEl.value||0) : 0;
+      updateData.refund_amount = amt; // كل التأمين رجع
       updateData.deduction_amount = dedAmt;
-      updateData.refund_amount = amt - dedAmt;
     } else {
-      updateData.refund_date = null;
-      updateData.refund_amount = 0;
-      updateData.deduction_amount = 0;
+      // استرداد جزئي — held مع تسجيل المبلغ المُرجَع
+      updateData.refund_date = (rdInput && rdInput.value) ? rdInput.value : null;
+      updateData.refund_amount = refAmt;
+      updateData.deduction_amount = dedAmt;
     }
     var { error } = await sb.from('deposits').update(updateData).eq('id', depId);
 
@@ -1100,8 +1104,8 @@ async function printOwnerSettlement() {
       sb.from('expenses').select('category,amount,description').eq('period_month', (monYM||'').slice(0,7)+'-01'),
       sb.from('owner_payments').select('amount,method,reference,notes').eq('period_month', (monYM||'').slice(0,7)+'-01'),
       sb.from('units').select('id,apartment,room,tenant_name,tenant_name2'),
-      sb.from('deposits').select('unit_id,apartment,room,amount,deposit_received_date,tenant_name,status,refund_date')
-        .eq('status','refunded').gte('refund_date',monthStartDate).lte('refund_date',monthEndDate)
+      sb.from('deposits').select('unit_id,apartment,room,amount,refund_amount,deposit_received_date,tenant_name,status,refund_date')
+        .gt('refund_amount', 0)
     ]);
     var pays=pR.data||[], deps=dR.data||[], exps=eR.data||[], owns=oR.data||[], units=uR.data||[];
     var refundedDeps = rR.data||[];
@@ -1118,7 +1122,7 @@ async function printOwnerSettlement() {
     var totalRent    = pays.reduce(function(s,p){return s+(Number(p.amount)||0);},0);
     var totalDeps    = deps.reduce(function(s,d){ if(d.status==='refunded') return s; return s+(Number(d.amount)||0); },0);
     var totalDepsIn  = totalDeps;  // alias used in summary table
-    var totalRefunds = (refundedDeps||[]).reduce(function(s,d){ return s+(Number(d.amount)||0); }, 0);
+    var totalRefunds = (refundedDeps||[]).reduce(function(s,d){ return s+(Number(d.refund_amount)||0); }, 0);
     var totalExp     = exps.reduce(function(s,e){return s+(Number(e.amount)||0);},0);
     var totalOwn     = owns.reduce(function(s,o){return s+(Number(o.amount)||0);},0);
     var balance      = totalRent + totalDeps - totalRefunds - totalExp - totalOwn;
@@ -1407,11 +1411,17 @@ async function quickRefundDeposit(depId) {
     modal.innerHTML = '<div style="background:var(--surf);border-radius:20px;padding:20px;width:100%;max-width:480px">'
       + '<div style="font-weight:700;font-size:1rem;margin-bottom:4px">↩️ '+(LANG==='ar'?'استرداد التأمين':'Refund Deposit')+'</div>'
       + '<div style="font-size:.72rem;color:var(--muted);margin-bottom:16px">'+(d.tenant_name||'')+'</div>'
-      + '<div class="fld"><label>'+(LANG==='ar'?'مبلغ الاسترداد (AED)':'Refund Amount')+'</label>'
-      + '<input class="inp" id="ed-amt" type="number" inputmode="numeric" value="'+(d.amount||0)+'"></div>'
+      + '<div class="fld"><label>'+(LANG==='ar'?'التأمين الكامل (AED)':'Full Deposit (AED)')+'</label>'
+      + '<input class="inp" id="ed-amt" type="number" inputmode="numeric" value="'+(d.amount||0)+'" readonly style="opacity:.6">'
+      + '<div class="fld"><label style="color:var(--green);font-weight:700">'+(LANG==='ar'?'المبلغ المُرجَع الآن (AED)':'Amount Returned Now (AED)')+'</label>'
+      + '<input class="inp" id="ed-ref-back" type="number" inputmode="numeric" value="'+(d.refund_amount||0)+'"></div>'
       + '<div class="fld"><label>'+(LANG==='ar'?'تاريخ الاستلام الأصلي':'Original Received Date')+'</label>'
       + '<input class="inp" id="ed-date" type="date" value="'+rdVal+'"></div>'
-      + '<input type="hidden" id="ed-status" value="refunded">'
+      + '<div class="fld"><label>'+(LANG==='ar'?'هل غادر المستأجر؟':'Did tenant leave?')+'</label>'
+      + '<select class="inp" id="ed-status">'
+      + '<option value="held">'+(LANG==='ar'?'لأ — لسه عنده تأمين (استرداد جزئي)':'No — still has deposit (partial refund)')+'</option>'
+      + '<option value="refunded">'+(LANG==='ar'?'نعم — غادر وخلص التأمين':'Yes — left, deposit closed')+'</option>'
+      + '</select></div>'
       + '<div class="fld"><label style="color:var(--red);font-weight:700">'+(LANG==='ar'?'تاريخ الإرجاع ✱':'Refund Date ✱')+'</label>'
       + '<input class="inp" id="ed-refund-date" type="date" value="'+today+'">'
       + '<small style="display:block;color:var(--muted);font-size:.65rem;margin-top:3px">'+(LANG==='ar'?'تاريخ إرجاع المبلغ للمستأجر':'Date money returned to tenant')+'</small></div>'
