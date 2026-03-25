@@ -3,8 +3,8 @@
 async function autoFillDepDate() {
   if(window._afdTimer) clearTimeout(window._afdTimer);
   window._afdTimer = setTimeout(async function() {
-    var apt  = (document.getElementById('d-apt')||{}).value||'';
-    var room = (document.getElementById('d-room')||{}).value||'';
+    var apt  = String((document.getElementById('d-apt')||{}).value||'').trim();
+    var room = String((document.getElementById('d-room')||{}).value||'').trim();
     if(!apt || !room) return;
     var dateEl = document.getElementById('d-date');
     var nameEl = document.getElementById('d-name');
@@ -23,7 +23,7 @@ async function autoFillDepDate() {
       if(dateEl && !dateEl.value && u.start_date) dateEl.value = u.start_date.slice(0,10);
       if(nameEl && u.tenant_name) nameEl.value = u.tenant_name;
       var amtEl = document.getElementById('d-amt');
-      if(amtEl && !amtEl.value && u.deposit) amtEl.value = u.deposit;
+      if(amtEl && (!amtEl.value || Number(amtEl.value)===0) && u.deposit) amtEl.value = u.deposit;
 
       // ── Check if deposit already exists ──
       if(u.id) {
