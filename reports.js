@@ -494,6 +494,9 @@ async function loadDepRpt(btn) {
           +'<div style="text-align:left;min-width:84px">'
           +'<div style="font-weight:700;color:var(--accent)">'+d.amount+' AED</div>'
           +'<div style="font-size:.7rem;color:'+sCol+';font-weight:600">'+sTxt+'</div>'
+          +(d.refund_amount>0 && d.status!=='refunded'?'<div style="font-size:.68rem;color:var(--red);font-weight:600">↩️ '+(LANG==='ar'?'مُرجَع:':'Refunded:')+' '+d.refund_amount+' AED</div>':'')
+          +(d.refund_amount>0 && d.status!=='refunded'?'<div style="font-size:.65rem;color:var(--green);font-weight:600">'+(LANG==='ar'?'متبقي:':'Remaining:')+' '+(d.amount-d.refund_amount)+' AED</div>':'')
+          +(d.refund_date && d.refund_amount>0 && d.status!=='refunded'?'<div style="font-size:.63rem;color:var(--muted)">📅 '+d.refund_date.slice(0,10)+'</div>':'')
           +'</div>'
           +'</div>';
       });
