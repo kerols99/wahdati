@@ -545,6 +545,7 @@
 <div class="tabs" style="margin-bottom:16px">
 <button class="tab active" data-tab-target="tDepart" id="moves-tab-depart">📤 مغادرون</button>
 <button class="tab" data-tab-target="tArrive" id="moves-tab-arrive">📥 حجوزات جديدة</button>
+<button class="tab" data-tab-target="tInternal" id="moves-tab-internal">🔄 نقل داخلي</button>
 <button class="tab" data-tab-target="tWelcome" id="moves-tab-welcome">📄 رسالة ترحيب</button>
 </div>
 <!-- DEPARTURES TAB -->
@@ -562,6 +563,14 @@
 <button class="btn bp" data-click="addMoveEntry" data-type="arrive" id="btn-add-arrive" style="padding:8px 14px;font-size:.8rem">+ إضافة</button>
 </div>
 <div id="arrive-list"></div>
+</div>
+<!-- INTERNAL TRANSFER TAB -->
+<div class="tpanel" id="tInternal">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+<span style="font-size:.82rem;color:var(--muted)">نقل مستأجر من وحدة لوحدة أخرى</span>
+<button class="btn bp" onclick="openInternalTransferModal()" style="padding:8px 14px;font-size:.8rem">+ نقل جديد</button>
+</div>
+<div id="internal-transfer-list"><div style="text-align:center;padding:30px;color:var(--muted);font-size:.82rem">لا توجد نقليات داخلية مسجّلة</div></div>
 </div>
 <!-- WELCOME LETTER TAB -->
 <div class="tpanel" id="tWelcome">
