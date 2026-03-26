@@ -757,181 +757,157 @@ function buildWAMsg(d) {
 
 window.getWelcomeData=getWelcomeData; window.loadMovesList=loadMovesList; window.addMoveEntry=addMoveEntry; window.saveMoveEntry=saveMoveEntry; window.deleteMoveEntry=deleteMoveEntry; window.showWelcomeLetter=showWelcomeLetter; window.printWelcomeLetter=printWelcomeLetter; window.buildWelcomeLetter=buildWelcomeLetter; window.sendWelcomeWA=sendWelcomeWA; window.buildWAMsg=buildWAMsg; window.addDepartureModal=addDepartureModal; window.addArrivalModal=addArrivalModal; window.saveArrivalEntry=saveArrivalEntry; window.fetchOccupiedUnits=fetchOccupiedUnits; window.fetchDepartures=fetchDepartures;
 
+
 // ══════════════════════════════════════════════════════
 // INTERNAL TRANSFER — نقل داخلي
 // ══════════════════════════════════════════════════════
 
 async function openInternalTransferModal() {
-  // Load all occupied units
-  var units = [];
-  try { units = await fetchOccupiedUnits(); } catch(e){}
+  window._itFromId = null;
+  window._itToId   = null;
 
-  // Load all available units
-  var { data: vacantUnits } = await sb.from('units')
-    .select('id,apartment,room,monthly_rent,is_vacant,unit_status')
-    .eq('is_vacant', true)
-    .order('apartment', {ascending:true});
-  vacantUnits = vacantUnits || [];
+  var allUnits = [];
+  try {
+    var res = await sb.from('units')
+      .select('id,apartment,room,monthly_rent,is_vacant,unit_status,tenant_name,tenant_name2')
+      .order('apartment',{ascending:true});
+    allUnits = res.data || [];
+  } catch(e){}
+
+  window._itOccupied = allUnits.filter(function(u){ return !u.is_vacant; });
+  window._itVacant   = allUnits.filter(function(u){ return u.is_vacant; });
+
+  var existing = document.getElementById('internal-transfer-modal');
+  if(existing) existing.remove();
 
   var overlay = document.createElement('div');
   overlay.id = 'internal-transfer-modal';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:500;display:flex;align-items:flex-end;justify-content:center;padding:0';
 
-  var fromOpts = units.map(function(u) {
-    return '<option value="'+u.id+'">شقة '+u.apartment+' — غرفة '+u.room+' | '+(u.tenant_name||'—')+'</option>';
-  }).join('');
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'background:var(--surf);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto';
 
-  var toOpts = vacantUnits.map(function(u) {
-    return '<option value="'+u.id+'">شقة '+u.apartment+' — غرفة '+u.room+' | '+u.monthly_rent+' AED</option>';
-  }).join('');
+  wrap.innerHTML = [
+    '<div style="font-weight:800;font-size:1.1rem;margin-bottom:4px">🔄 نقل داخلي</div>',
+    '<div style="font-size:.75rem;color:var(--muted);margin-bottom:16px">نقل مستأجر من وحدة لأخرى مع كل بياناته</div>',
+    // FROM
+    '<div class="fld">',
+      '<label style="font-weight:700;color:var(--red)">📤 من وحدة (المستأجر الحالي)</label>',
+      '<input class="inp" id="it-from-search" placeholder="ابحث بالشقة أو الاسم...">',
+      '<div id="it-from-results" style="background:var(--surf2);border-radius:10px;margin-top:4px;max-height:150px;overflow-y:auto;display:none"></div>',
+      '<div id="it-from-selected" style="display:none;padding:8px 12px;background:var(--red)15;border:1px solid var(--red)44;border-radius:10px;margin-top:4px;font-size:.82rem;color:var(--red);font-weight:700"></div>',
+    '</div>',
+    // TO
+    '<div class="fld">',
+      '<label style="font-weight:700;color:var(--green)">📥 إلى وحدة (الوحدة الشاغرة)</label>',
+      '<input class="inp" id="it-to-search" placeholder="ابحث برقم الشقة أو الغرفة...">',
+      '<div id="it-to-results" style="background:var(--surf2);border-radius:10px;margin-top:4px;max-height:150px;overflow-y:auto;display:none"></div>',
+      '<div id="it-to-selected" style="display:none;padding:8px 12px;background:var(--green)15;border:1px solid var(--green)44;border-radius:10px;margin-top:4px;font-size:.82rem;color:var(--green);font-weight:700"></div>',
+    '</div>',
+    '<div class="fld"><label>تاريخ الانتقال</label><input class="inp" id="it-date" type="date"></div>',
+    '<div class="fld"><label>الإيجار الجديد (AED) — فاضي = يبقى نفس القديم</label><input class="inp" id="it-rent" type="number" inputmode="numeric" placeholder="اختياري"></div>',
+    '<div class="fld"><label>ملاحظات</label><input class="inp" id="it-notes" placeholder="اختياري"></div>',
+    '<div style="background:var(--amber)18;border:1px solid var(--amber)44;border-radius:10px;padding:10px;margin-bottom:14px;font-size:.74rem;color:var(--amber)">',
+      '⚠️ سيتم: نقل البيانات للوحدة الجديدة + إفراغ القديمة + تسجيل في السجل التاريخي + نقل التأمين',
+    '</div>',
+    '<div style="display:flex;gap:8px">',
+      '<button id="it-exec-btn" style="flex:1;padding:13px;background:var(--green);border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:.9rem;font-weight:700;cursor:pointer">✅ تنفيذ النقل</button>',
+      '<button id="it-cancel-btn" style="padding:13px 18px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;color:var(--muted);font-family:inherit;cursor:pointer">إلغاء</button>',
+    '</div>'
+  ].join('');
 
-  overlay.innerHTML = '<div style="background:var(--surf);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto">'
-    + '<div style="font-weight:800;font-size:1.1rem;margin-bottom:4px">🔄 نقل داخلي</div>'
-    + '<div style="font-size:.75rem;color:var(--muted);margin-bottom:16px">نقل مستأجر من وحدة لأخرى مع كل بياناته</div>'
-
-    + '<div class="fld"><label style="font-weight:700;color:var(--red)">📤 من وحدة</label>'
-    + '<select class="inp" id="it-from">'
-    + '<option value="">اختر الوحدة الحالية...</option>'
-    + fromOpts
-    + '</select></div>'
-
-    + '<div class="fld"><label style="font-weight:700;color:var(--green)">📥 إلى وحدة</label>'
-    + '<select class="inp" id="it-to">'
-    + '<option value="">اختر الوحدة الجديدة...</option>'
-    + toOpts
-    + '</select></div>'
-
-    + '<div class="fld"><label>تاريخ الانتقال</label>'
-    + '<input class="inp" id="it-date" type="date" value="'+new Date().toISOString().slice(0,10)+'"></div>'
-
-    + '<div class="fld"><label>الإيجار الجديد (AED) — اتركه فاضي للإبقاء على القديم</label>'
-    + '<input class="inp" id="it-rent" type="number" inputmode="numeric" placeholder="اختياري"></div>'
-
-    + '<div class="fld"><label>ملاحظات</label>'
-    + '<input class="inp" id="it-notes" placeholder="اختياري"></div>'
-
-    + '<div style="background:var(--amber)18;border:1px solid var(--amber)44;border-radius:10px;padding:10px;margin-bottom:12px;font-size:.75rem;color:var(--amber)">'
-    + '⚠️ سيتم: نقل البيانات للوحدة الجديدة + إفراغ القديمة + تسجيل في السجل التاريخي + نقل التأمين'
-    + '</div>'
-
-    + '<div style="display:flex;gap:8px">'
-    + '<button onclick="executeInternalTransfer()" style="flex:1;padding:13px;background:var(--green);border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:.9rem;font-weight:700;cursor:pointer">✅ تنفيذ النقل</button>'
-    + '<button onclick="document.getElementById(\'internal-transfer-modal\').remove()" style="padding:13px 18px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;color:var(--muted);font-family:inherit;cursor:pointer">إلغاء</button>'
-    + '</div></div>';
-
+  overlay.appendChild(wrap);
   overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
   document.body.appendChild(overlay);
+
+  // Set today's date
+  var dateEl = document.getElementById('it-date');
+  if(dateEl) dateEl.value = new Date().toISOString().slice(0,10);
+
+  // Bind events
+  document.getElementById('it-exec-btn').addEventListener('click', executeInternalTransfer);
+  document.getElementById('it-cancel-btn').addEventListener('click', function(){ overlay.remove(); });
+
+  document.getElementById('it-from-search').addEventListener('input', function(){ itFilterUnits('from'); });
+  document.getElementById('it-to-search').addEventListener('input', function(){ itFilterUnits('to'); });
 }
 
-async function executeInternalTransfer() {
-  var fromId = parseInt(document.getElementById('it-from').value);
-  var toId   = parseInt(document.getElementById('it-to').value);
-  var date   = document.getElementById('it-date').value;
-  var newRent= document.getElementById('it-rent').value;
-  var notes  = document.getElementById('it-notes').value.trim();
+function itFilterUnits(mode) {
+  var searchEl  = document.getElementById('it-'+mode+'-search');
+  var resultsEl = document.getElementById('it-'+mode+'-results');
+  var q = (searchEl ? searchEl.value || '' : '').trim().toLowerCase();
+  var list = mode === 'from' ? (window._itOccupied||[]) : (window._itVacant||[]);
 
-  if(!fromId || !toId) { toast(LANG==='ar'?'اختر الوحدتين':'Select both units','err'); return; }
-  if(fromId === toId)  { toast(LANG==='ar'?'الوحدتان متشابهتان':'Same unit','err'); return; }
-  if(!date)            { toast(LANG==='ar'?'التاريخ مطلوب':'Date required','err'); return; }
-  if(!confirm(LANG==='ar'?'هل تريد تنفيذ النقل الداخلي؟':'Execute internal transfer?')) return;
+  resultsEl.innerHTML = '';
+  if(!q) { resultsEl.style.display='none'; return; }
 
-  var btn = document.querySelector('#internal-transfer-modal button[onclick="executeInternalTransfer()"]');
-  if(btn) { btn.disabled=true; btn.textContent='⏳ جاري النقل...'; }
+  var filtered = list.filter(function(u){
+    var apt  = String(u.apartment||'').toLowerCase();
+    var room = String(u.room||'').toLowerCase();
+    var name = String(u.tenant_name||'').toLowerCase();
+    return apt.indexOf(q)>-1 || room.indexOf(q)>-1 || name.indexOf(q)>-1
+      || (apt+'-'+room).indexOf(q)>-1;
+  }).slice(0,8);
 
-  try {
-    // 1. Get source unit data
-    var { data: fromUnit, error: e1 } = await sb.from('units').select('*').eq('id', fromId).single();
-    if(e1) throw e1;
+  if(!filtered.length) {
+    resultsEl.innerHTML = '<div style="padding:10px;color:var(--muted);font-size:.8rem">لا نتائج</div>';
+    resultsEl.style.display = 'block';
+    return;
+  }
 
-    // 2. Get target unit data
-    var { data: toUnit, error: e2 } = await sb.from('units').select('*').eq('id', toId).single();
-    if(e2) throw e2;
+  filtered.forEach(function(u){
+    var div = document.createElement('div');
+    div.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border)33;font-size:.82rem';
+    div.textContent = mode === 'from'
+      ? 'شقة '+u.apartment+' — غرفة '+u.room+' | '+(u.tenant_name||'—')
+      : 'شقة '+u.apartment+' — غرفة '+u.room+' | '+u.monthly_rent+' AED';
+    div.addEventListener('click', function(){
+      itSelectUnit(mode, u.id, div.textContent);
+    });
+    div.addEventListener('mouseover', function(){ this.style.background='var(--surf3)'; });
+    div.addEventListener('mouseout',  function(){ this.style.background=''; });
+    resultsEl.appendChild(div);
+  });
+  resultsEl.style.display = 'block';
+}
 
-    // 3. Save snapshot in unit_history for source unit (departure)
-    await sb.from('unit_history').insert({
-      unit_id: fromId,
-      apartment: parseInt(fromUnit.apartment) || 0,
-      room: parseInt(fromUnit.room) || 0,
-      tenant_name: fromUnit.tenant_name,
-      tenant_name2: fromUnit.tenant_name2,
-      phone: fromUnit.phone,
-      phone2: fromUnit.phone2,
-      monthly_rent: fromUnit.monthly_rent,
-      rent1: fromUnit.rent1,
-      rent2: fromUnit.rent2,
-      deposit: fromUnit.deposit,
-      persons_count: fromUnit.persons_count,
-      start_date: fromUnit.start_date,
-      end_date: date,
-      notes: 'نقل داخلي إلى شقة '+toUnit.apartment+' غرفة '+toUnit.room+(notes?' — '+notes:''),
-      snapshot_type: 'internal_transfer_out',
-      recorded_by: ME ? ME.id : null
+function itSelectUnit(mode, id, label) {
+  if(mode==='from') window._itFromId = id;
+  else              window._itToId   = id;
+
+  var searchEl   = document.getElementById('it-'+mode+'-search');
+  var resultsEl  = document.getElementById('it-'+mode+'-results');
+  var selectedEl = document.getElementById('it-'+mode+'-selected');
+
+  if(searchEl)   searchEl.style.display   = 'none';
+  if(resultsEl)  resultsEl.style.display  = 'none';
+  if(selectedEl) {
+    selectedEl.style.display = 'block';
+
+    var span = document.createElement('span');
+    span.textContent = (mode==='from'?'📤 ':'📥 ') + label;
+
+    var changeBtn = document.createElement('span');
+    changeBtn.textContent = '  ✕';
+    changeBtn.style.cssText = 'cursor:pointer;color:var(--muted);font-weight:400';
+    changeBtn.addEventListener('click', function(){
+      if(mode==='from') window._itFromId=null;
+      else              window._itToId=null;
+      if(searchEl)   { searchEl.style.display='block'; searchEl.value=''; }
+      if(resultsEl)  resultsEl.style.display='none';
+      selectedEl.style.display='none';
+      selectedEl.innerHTML='';
     });
 
-    // 4. Copy tenant data to new unit
-    var rentToSet = newRent ? Number(newRent) : fromUnit.monthly_rent;
-    var { error: e3 } = await sb.from('units').update({
-      tenant_name: fromUnit.tenant_name,
-      tenant_name2: fromUnit.tenant_name2,
-      phone: fromUnit.phone,
-      phone2: fromUnit.phone2,
-      language: fromUnit.language,
-      persons_count: fromUnit.persons_count,
-      monthly_rent: rentToSet,
-      rent1: newRent ? Number(newRent) : fromUnit.rent1,
-      rent2: fromUnit.rent2,
-      deposit: fromUnit.deposit,
-      start_date: date,
-      is_vacant: false,
-      unit_status: 'occupied',
-      notes: notes || fromUnit.notes
-    }).eq('id', toId);
-    if(e3) throw e3;
-
-    // 5. Clear source unit
-    var { error: e4 } = await sb.from('units').update({
-      tenant_name: null, tenant_name2: null,
-      phone: null, phone2: null,
-      monthly_rent: toUnit.monthly_rent || 0,
-      rent1: 0, rent2: 0,
-      deposit: 0,
-      start_date: null,
-      is_vacant: true,
-      unit_status: 'available',
-      notes: 'أُفرغت بنقل داخلي — '+date
-    }).eq('id', fromId);
-    if(e4) throw e4;
-
-    // 6. Transfer deposit record
-    var { error: e5 } = await sb.from('deposits').update({
-      unit_id: toId,
-      apartment: String(toUnit.apartment),
-      room: String(toUnit.room),
-      notes: (notes||'') + ' | نُقل من شقة '+fromUnit.apartment+'-'+fromUnit.room
-    }).eq('unit_id', fromId).eq('status', 'held');
-    // e5 is ok even if no deposit found
-
-    // 7. Update internal transfer list display
-    var list = document.getElementById('internal-transfer-list');
-    if(list) {
-      var item = document.createElement('div');
-      item.style.cssText = 'background:var(--surf2);border-radius:12px;padding:12px;margin-bottom:8px;border-right:4px solid var(--green)';
-      item.innerHTML = '<div style="font-weight:700">🔄 '+(fromUnit.tenant_name||'—')+'</div>'
-        + '<div style="font-size:.75rem;color:var(--muted)">من شقة '+fromUnit.apartment+' غرفة '+fromUnit.room
-        + ' → شقة '+toUnit.apartment+' غرفة '+toUnit.room+'</div>'
-        + '<div style="font-size:.7rem;color:var(--muted)">📅 '+date+'</div>';
-      if(list.querySelector('[style*="text-align:center"]')) list.innerHTML = '';
-      list.insertBefore(item, list.firstChild);
-    }
-
-    toast(LANG==='ar'?'✅ تم النقل الداخلي بنجاح':'✅ Transfer completed','ok');
-    document.getElementById('internal-transfer-modal').remove();
-
-  } catch(e) {
-    toast('خطأ: '+e.message,'err');
-    if(btn) { btn.disabled=false; btn.textContent='✅ تنفيذ النقل'; }
+    selectedEl.innerHTML = '';
+    selectedEl.appendChild(span);
+    selectedEl.appendChild(changeBtn);
   }
 }
 
 window.openInternalTransferModal = openInternalTransferModal;
+window.itFilterUnits = itFilterUnits;
+window.itSelectUnit  = itSelectUnit;
+
+
 window.executeInternalTransfer = executeInternalTransfer;
