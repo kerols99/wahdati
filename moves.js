@@ -910,4 +910,112 @@ window.itFilterUnits = itFilterUnits;
 window.itSelectUnit  = itSelectUnit;
 
 
+
+async function executeInternalTransfer() {
+  var fromId = window._itFromId;
+  var toId   = window._itToId;
+  var date   = (document.getElementById('it-date')||{}).value||'';
+  var newRent= (document.getElementById('it-rent')||{}).value||'';
+  var notes  = ((document.getElementById('it-notes')||{}).value||'').trim();
+
+  if(!fromId) { toast(LANG==='ar'?'اختر الوحدة الحالية':'Select source unit','err'); return; }
+  if(!toId)   { toast(LANG==='ar'?'اختر الوحدة الجديدة':'Select target unit','err'); return; }
+  if(fromId === toId) { toast(LANG==='ar'?'الوحدتان متشابهتان':'Same unit selected','err'); return; }
+  if(!date)   { toast(LANG==='ar'?'التاريخ مطلوب':'Date required','err'); return; }
+  if(!confirm(LANG==='ar'?'هل تريد تنفيذ النقل الداخلي؟':'Execute internal transfer?')) return;
+
+  var btn = document.getElementById('it-exec-btn');
+  if(btn) { btn.disabled=true; btn.textContent='⏳ جاري النقل...'; }
+
+  try {
+    var { data: fromUnit, error: e1 } = await sb.from('units').select('*').eq('id', fromId).single();
+    if(e1) throw e1;
+    var { data: toUnit, error: e2 } = await sb.from('units').select('*').eq('id', toId).single();
+    if(e2) throw e2;
+
+    // 1. Save snapshot in unit_history
+    await sb.from('unit_history').insert({
+      unit_id: fromId,
+      apartment: parseInt(fromUnit.apartment)||0,
+      room: parseInt(fromUnit.room)||0,
+      tenant_name: fromUnit.tenant_name,
+      tenant_name2: fromUnit.tenant_name2,
+      phone: fromUnit.phone,
+      phone2: fromUnit.phone2,
+      monthly_rent: fromUnit.monthly_rent,
+      rent1: fromUnit.rent1,
+      rent2: fromUnit.rent2,
+      deposit: fromUnit.deposit,
+      persons_count: fromUnit.persons_count,
+      start_date: fromUnit.start_date,
+      end_date: date,
+      notes: 'نقل داخلي إلى شقة '+toUnit.apartment+' غرفة '+toUnit.room+(notes?' — '+notes:''),
+      snapshot_type: 'internal_transfer_out',
+      recorded_by: ME ? ME.id : null
+    });
+
+    // 2. Copy tenant to new unit
+    var rentToSet = newRent ? Number(newRent) : fromUnit.monthly_rent;
+    var { error: e3 } = await sb.from('units').update({
+      tenant_name: fromUnit.tenant_name,
+      tenant_name2: fromUnit.tenant_name2,
+      phone: fromUnit.phone,
+      phone2: fromUnit.phone2,
+      language: fromUnit.language,
+      persons_count: fromUnit.persons_count,
+      monthly_rent: rentToSet,
+      rent1: newRent ? Number(newRent) : (fromUnit.rent1||0),
+      rent2: fromUnit.rent2||0,
+      deposit: fromUnit.deposit||0,
+      start_date: date,
+      is_vacant: false,
+      unit_status: 'occupied',
+      notes: notes || fromUnit.notes || null
+    }).eq('id', toId);
+    if(e3) throw e3;
+
+    // 3. Clear source unit
+    var { error: e4 } = await sb.from('units').update({
+      tenant_name: null, tenant_name2: null,
+      phone: null, phone2: null,
+      monthly_rent: 0, rent1: 0, rent2: 0, deposit: 0,
+      start_date: null,
+      is_vacant: true,
+      unit_status: 'available',
+      notes: 'أُفرغت بنقل داخلي — '+date
+    }).eq('id', fromId);
+    if(e4) throw e4;
+
+    // 4. Transfer deposit record if exists
+    await sb.from('deposits').update({
+      unit_id: toId,
+      apartment: String(toUnit.apartment),
+      room: String(toUnit.room)
+    }).eq('unit_id', fromId).eq('status', 'held');
+
+    // 5. Update list display
+    var list = document.getElementById('internal-transfer-list');
+    if(list) {
+      var item = document.createElement('div');
+      item.style.cssText = 'background:var(--surf2);border-radius:12px;padding:12px;margin-bottom:8px;border-right:4px solid var(--green)';
+      item.innerHTML = '<div style="font-weight:700">🔄 '+(fromUnit.tenant_name||'—')+'</div>'
+        + '<div style="font-size:.75rem;color:var(--muted)">شقة '+fromUnit.apartment+' غرفة '+fromUnit.room
+        + ' ← شقة '+toUnit.apartment+' غرفة '+toUnit.room+'</div>'
+        + '<div style="font-size:.7rem;color:var(--muted)">📅 '+date+'</div>';
+      var empty = list.querySelector('[style*="text-align:center"]');
+      if(empty) list.innerHTML = '';
+      list.insertBefore(item, list.firstChild);
+    }
+
+    toast(LANG==='ar'?'✅ تم النقل الداخلي بنجاح':'✅ Transfer completed','ok');
+    var modal = document.getElementById('internal-transfer-modal');
+    if(modal) modal.remove();
+    if(window.loadUnits) loadUnits();
+
+  } catch(e) {
+    toast((LANG==='ar'?'خطأ: ':'Error: ')+(e.message||String(e)),'err');
+    if(btn) { btn.disabled=false; btn.textContent='✅ تنفيذ النقل'; }
+  }
+}
+
 window.executeInternalTransfer = executeInternalTransfer;
