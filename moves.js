@@ -580,6 +580,18 @@ async function loadMovesList(type) {
     }
     var html = '';
     if(type==='depart') {
+      // Fetch vacant units count
+      var { data: vacantUnits } = await sb.from('units').select('id').eq('is_vacant', true);
+      var vacantCount = (vacantUnits||[]).length;
+      var departCount = data.length;
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
+        + '<div style="background:var(--red)18;border:1.5px solid var(--red)44;border-radius:12px;padding:12px;text-align:center">'
+        + '<div style="font-size:1.6rem;font-weight:800;color:var(--red)">'+departCount+'</div>'
+        + '<div style="font-size:.7rem;color:var(--muted);margin-top:2px">📤 '+(LANG==='ar'?'مغادرون':'Departing')+'</div></div>'
+        + '<div style="background:var(--amber)18;border:1.5px solid var(--amber)44;border-radius:12px;padding:12px;text-align:center">'
+        + '<div style="font-size:1.6rem;font-weight:800;color:var(--amber)">'+vacantCount+'</div>'
+        + '<div style="font-size:.7rem;color:var(--muted);margin-top:2px">🏠 '+(LANG==='ar'?'شاغرة حالياً':'Currently Vacant')+'</div></div>'
+        + '</div>';
       html += '<div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">'
         + '<div style="font-size:.78rem;color:var(--muted);margin-bottom:8px">' + esc(LANG==='ar'?'تقرير المغادرين':'Departure report') + '</div>'
         + '<div style="font-size:1rem;font-weight:800;margin-bottom:8px">' + esc(LANG==='ar'?'الترتيب حسب الشقة والغرفة':'Sorted by apartment and room') + '</div>'
