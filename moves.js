@@ -486,6 +486,13 @@ async function saveMoveEntry(type, btn){
     };
     var ins = await sb.from('moves').insert(payload);
     if(ins.error) throw ins.error;
+    // Update unit_status to leaving_soon
+    if(unitId) {
+      await sb.from('units').update({ unit_status: 'leaving_soon' }).eq('id', parseInt(unitId));
+    } else {
+      await sb.from('units').update({ unit_status: 'leaving_soon' })
+        .eq('apartment', String(apt)).eq('room', String(room));
+    }
     toast(t('savedDeparture'),'ok');
     var modal = document.getElementById('move-modal');
     if(modal) modal.remove();
