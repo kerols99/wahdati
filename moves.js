@@ -414,7 +414,7 @@ async function saveArrivalEntry(btn){
       type: 'arrive',
       unit_id: unitId||null,
       arrival_unit_id: unitId||null,
-      linked_depart_id: departId||null,
+      linked_depart_id: null, // departId is UUID but column is integer — skip
       tenant_name: name,
       apartment: parseInt(apt),
       room: parseInt(room),
