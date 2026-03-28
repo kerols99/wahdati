@@ -49,9 +49,11 @@ async function loadMonthly(btn) {
       // Deposits received this month
       sb.from('deposits').select('unit_id,amount,deposit_received_date,status,refund_date,tenant_name,apartment,room')
         .gte('deposit_received_date', monStart).lte('deposit_received_date', monEnd),
-      // Refunded deposits this month — by refund_date (may have been received in prior months)
+      // Refunded deposits this month — by refund_date
       sb.from('deposits').select('unit_id,amount,refund_amount,refund_date,tenant_name,apartment,room')
         .gt('refund_amount', 0)
+        .gte('refund_date', monStart)
+        .lte('refund_date', monEnd)
     ]);
     var units        = unitsRes.data||[];
     var pays         = paysRes.data||[];

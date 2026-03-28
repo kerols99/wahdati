@@ -567,6 +567,10 @@ async function loadMovesList(type) {
     var result = await sb.from('moves').select('*').eq('type', type).order('created_at', {ascending: false});
     if(result.error) throw result.error;
     var data = result.data || [];
+    // Fetch units for rent info
+    var { data: unitsData } = await sb.from('units').select('id,apartment,room,monthly_rent,rent1,rent2');
+    var unitMap = {};
+    (unitsData||[]).forEach(function(u){ unitMap[u.id] = u; });
     data.sort(function(a,b){
       var aptA = parseInt(a.apartment,10) || 0, aptB = parseInt(b.apartment,10) || 0;
       if(aptA !== aptB) return aptA - aptB;
@@ -617,7 +621,10 @@ async function loadMovesList(type) {
         + '<div style="font-size:1rem;font-weight:800;margin-bottom:8px">' + esc(LANG==='ar'?'الترتيب حسب الشقة والغرفة':'Sorted by apartment and room') + '</div>'
         + data.map(function(m){
           return '<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--border)">'
+            + '<div>'
             + '<div style="font-weight:800">' + esc(LANG==='ar'?'شقة ':'Apt ') + esc(m.apartment||'') + ' — ' + esc(LANG==='ar'?'غرفة ':'Room ') + esc(m.room||'') + '</div>'
+            + (function(){ var u = m.unit_id ? unitMap[m.unit_id] : null; var rent = u ? (u.monthly_rent||0) : 0; return rent ? '<div style="font-size:.72rem;color:var(--amber);font-weight:600">'+Number(rent).toLocaleString()+' AED</div>' : ''; })()
+            + '</div>'
             + '<div style="font-size:.72rem;color:var(--muted)">' + esc(fmtDate(m.move_date, LANG) || '') + '</div>'
             + '</div>';
         }).join('')
