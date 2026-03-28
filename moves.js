@@ -403,7 +403,8 @@ async function saveArrivalEntry(btn){
         deposit: deposit||0,
         persons_count: persons,
         start_date: date||null,
-        is_vacant: false
+        is_vacant: false,
+        unit_status: (date && new Date(date) > new Date()) ? 'reserved' : 'occupied'
       };
       await sb.from('units').update(updatePayload).eq('id',unitId);
     }
@@ -1034,6 +1035,9 @@ async function printDepartureReport() {
 
   var { data: moves } = await sb.from('moves').select('*').eq('type','depart').order('apartment',{ascending:true});
   var { data: vacant } = await sb.from('units').select('apartment,room,monthly_rent').eq('is_vacant',true).order('apartment',{ascending:true});
+  var { data: allUnitsForPdf } = await sb.from('units').select('id,monthly_rent');
+  window._pdfUnitMap = {};
+  (allUnitsForPdf||[]).forEach(function(u){ window._pdfUnitMap[u.id]=u; });
   moves = moves||[]; vacant = vacant||[];
 
   var today = new Date().toLocaleDateString(LANG==='ar'?'ar-AE':'en-GB');
@@ -1059,6 +1063,7 @@ async function printDepartureReport() {
     + '<thead><tr style="background:#f0f4ff">'
     + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #1a3a6a">الشقة</th>'
     + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #1a3a6a">الغرفة</th>'
+    + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #1a3a6a">الإيجار</th>'
     + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #1a3a6a">تاريخ المغادرة</th>'
     + '</tr></thead><tbody>'
     + moves.sort(function(a,b){
@@ -1068,6 +1073,7 @@ async function printDepartureReport() {
         return '<tr style="border-bottom:1px solid #eee">'
           +'<td style="padding:7px 8px;font-size:12px">شقة '+m.apartment+'</td>'
           +'<td style="padding:7px 8px;font-size:12px">غرفة '+m.room+'</td>'
+          +(function(){ var u=m.unit_id?(window._pdfUnitMap||{})[m.unit_id]:null; var r=u?Number(u.monthly_rent||0):0; return '<td style="padding:7px 8px;font-size:12px;color:#e67e22;font-weight:600">'+(r?r.toLocaleString()+' AED':'—')+'</td>'; })()
           +'<td style="padding:7px 8px;font-size:12px;color:#555">'+(m.move_date||'—')+'</td>'
           +'</tr>';
       }).join('')

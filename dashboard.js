@@ -398,7 +398,8 @@ async function loadLastPayment() {
       if(lr && re && !re.value) re.value = lr;
       if(la && lr && window.autoFillRent) setTimeout(autoFillRent, 100);
     } catch(e) {}
-    var { data: last } = await sb.from('rent_payments').select('*').order('payment_date',{ascending:false}).limit(1);
+    var { data: last } = await activateReservedUnits();
+  await sb.from('rent_payments').select('*').order('payment_date',{ascending:false}).limit(1);
     if(!last||!last[0]) return;
     var p = last[0];
     _lastPaymentData = p;
@@ -827,6 +828,28 @@ window.exportCollPDF = exportCollPDF;
 
 // Exports
 window.loadCollReport      = loadCollReport;
+
+// ══ AUTO-ACTIVATE RESERVED UNITS ══
+async function activateReservedUnits() {
+  try {
+    var today = new Date().toISOString().slice(0,10);
+    // Find reserved units whose start_date has arrived
+    var { data: toActivate } = await sb.from('units')
+      .select('id,apartment,room,start_date')
+      .eq('unit_status','reserved')
+      .lte('start_date', today);
+
+    if(!toActivate || !toActivate.length) return;
+
+    for(var i=0; i<toActivate.length; i++) {
+      await sb.from('units').update({ unit_status: 'occupied' }).eq('id', toActivate[i].id);
+    }
+    if(toActivate.length > 0) {
+      toast('✅ تم تفعيل '+toActivate.length+' وحدة محجوزة', 'ok');
+    }
+  } catch(e) { /* silent */ }
+}
+
 window.loadSmartDash       = loadSmartDash;
 window.repeatLastPayment   = repeatLastPayment;
 window.loadLastPayment     = loadLastPayment;
