@@ -1009,7 +1009,13 @@ function itSelectUnit(mode, id, label) {
 // ══ LOAD INTERNAL TRANSFERS FROM DB ══
 async function loadInternalTransfers() {
   var list = document.getElementById('internal-transfer-list');
-  if(!list) return;
+  if(!list) { 
+    // Try clicking the tab to activate it
+    var tab = document.getElementById('moves-tab-internal');
+    if(tab) tab.click();
+    setTimeout(loadInternalTransfers, 500);
+    return;
+  }
   list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">⏳ جاري التحميل...</div>';
 
   try {
@@ -1206,7 +1212,7 @@ async function executeInternalTransfer() {
       toast(LANG==='ar'?'✅ تم جدولة النقل في '+date:'✅ Transfer scheduled for '+date,'ok');
       var modal = document.getElementById('internal-transfer-modal');
       if(modal) modal.remove();
-      if(window.loadInternalTransfers) loadInternalTransfers();
+      if(window.loadInternalTransfers) setTimeout(loadInternalTransfers, 300);
       return;
     }
 
