@@ -165,6 +165,10 @@ async function loadSmartDash(ym) {
     // Pending bookings count
     var { data: pendingBookings } = await sb.from('moves').select('id').eq('type','arrive').eq('status','pending');
     if(el('dash-pending-bookings')) el('dash-pending-bookings').textContent = (pendingBookings||[]).length;
+    // Pending internal transfers count
+    var { data: pendingTransfers } = await sb.from('internal_transfers')
+      .select('id').like('notes','%مجدوله%');
+    if(el('dash-pending-transfers')) el('dash-pending-transfers').textContent = (pendingTransfers||[]).length;
     if(el('dash-maintenance')) el('dash-maintenance').textContent = maintenance.length;
 
   } catch(e) {
