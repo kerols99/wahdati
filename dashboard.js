@@ -162,6 +162,9 @@ async function loadSmartDash(ym) {
     if(el('dash-leaving'))     el('dash-leaving').textContent     = leaving.length;
     if(el('dash-new'))         el('dash-new').textContent         = newThisMonth.length;
     if(el('dash-reserved'))    el('dash-reserved').textContent    = reserved.length;
+    // Pending bookings count
+    var { data: pendingBookings } = await sb.from('moves').select('id').eq('type','arrive').eq('status','pending');
+    if(el('dash-pending-bookings')) el('dash-pending-bookings').textContent = (pendingBookings||[]).length;
     if(el('dash-maintenance')) el('dash-maintenance').textContent = maintenance.length;
 
   } catch(e) {

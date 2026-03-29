@@ -125,6 +125,10 @@
         <div id="dash-reserved" style="font-weight:800;font-size:1.2rem;color:var(--purple)">—</div>
         <div style="font-size:.6rem;color:var(--muted);margin-top:2px">محجوز</div>
       </div>
+      <div onclick="goPanel('moves');setTimeout(function(){document.getElementById('moves-tab-arrive').click();},200)" style="text-align:center;padding:8px 4px;background:var(--surf);border-radius:10px;cursor:pointer;transition:transform .12s;touch-action:manipulation" ontouchstart="this.style.transform='scale(.93)'" ontouchend="this.style.transform=''">
+        <div id="dash-pending-bookings" style="font-weight:800;font-size:1.2rem;color:var(--accent)">—</div>
+        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">حجز قادم 📋</div>
+      </div>
       <div onclick="goPanel('units');setTimeout(function(){setFilter('maintenance',document.querySelector('[data-filter=maintenance]'));},150)" style="text-align:center;padding:8px 4px;background:var(--surf);border-radius:10px;cursor:pointer;transition:transform .12s;touch-action:manipulation" ontouchstart="this.style.transform='scale(.93)'" ontouchend="this.style.transform=''">
         <div id="dash-maintenance" style="font-weight:800;font-size:1.2rem;color:var(--amber)">—</div>
         <div style="font-size:.6rem;color:var(--muted);margin-top:2px">صيانة</div>
