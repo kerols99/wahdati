@@ -1189,11 +1189,17 @@ async function executeInternalTransfer() {
   var btn = document.getElementById('it-exec-btn');
   if(btn) { btn.disabled=true; btn.textContent='⏳ جاري النقل...'; }
 
+  // Ensure IDs are integers
+  fromId = parseInt(fromId);
+  toId   = parseInt(toId);
+
   try {
     var { data: fromUnit, error: e1 } = await sb.from('units').select('*').eq('id', fromId).single();
     if(e1) throw e1;
+    if(!fromUnit) throw new Error('لم يتم العثور على الوحدة المصدر');
     var { data: toUnit, error: e2 } = await sb.from('units').select('*').eq('id', toId).single();
     if(e2) throw e2;
+    if(!toUnit) throw new Error('لم يتم العثور على الوحدة الهدف');
 
     // If future transfer — save to internal_transfers as pending, don't update units
     if(isFutureTransfer) {
