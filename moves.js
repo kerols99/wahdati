@@ -603,6 +603,13 @@ async function loadMovesList(type) {
     var { data: unitsData } = await sb.from('units').select('id,apartment,room,monthly_rent,rent1,rent2');
     var unitMap = {};
     (unitsData||[]).forEach(function(u){ unitMap[u.id] = u; });
+    // Fetch pending bookings and scheduled transfers for depart units
+    var { data: pendingArrivals } = await sb.from('moves').select('unit_id,apartment,room').eq('type','arrive').eq('status','pending');
+    var { data: pendingTransfersData } = await sb.from('internal_transfers').select('to_unit_id,notes').like('notes','%مجدوله%');
+    var bookedUnitIds = {};
+    (pendingArrivals||[]).forEach(function(a){ if(a.unit_id) bookedUnitIds[a.unit_id]='booking'; });
+    var transferToIds = {};
+    (pendingTransfersData||[]).forEach(function(t){ if(t.to_unit_id) transferToIds[t.to_unit_id]='transfer'; });
     data.sort(function(a,b){
       var aptA = parseInt(a.apartment,10) || 0, aptB = parseInt(b.apartment,10) || 0;
       if(aptA !== aptB) return aptA - aptB;
@@ -668,7 +675,15 @@ async function loadMovesList(type) {
         ? '<span style="background:var(--red)22;color:var(--red);border-radius:6px;padding:2px 8px;font-size:.7rem">📤 ' + esc(LANG==='ar'?'مغادر':'Departure') + '</span>'
         : '<span style="background:var(--green)22;color:var(--green);border-radius:6px;padding:2px 8px;font-size:.7rem">📥 ' + esc(LANG==='ar'?'حجز جديد':'Booking') + '</span>';
       var title = esc(LANG==='ar'?'شقة ':'Apt ') + esc(m.apartment||'') + ' — ' + esc(LANG==='ar'?'غرفة ':'Room ') + esc(m.room||'');
-      html += '<div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px">'
+      // Check if this unit has a pending booking or transfer
+      var unitStatus = m.unit_id ? (bookedUnitIds[m.unit_id] || transferToIds[m.unit_id]) : null;
+      var statusBadge = unitStatus === 'booking'
+        ? '<span style="background:var(--green)22;color:var(--green);border-radius:6px;padding:2px 8px;font-size:.68rem;font-weight:700">✅ محجوز</span>'
+        : unitStatus === 'transfer'
+        ? '<span style="background:var(--purple)22;color:var(--purple);border-radius:6px;padding:2px 8px;font-size:.68rem;font-weight:700">✅ نقل</span>'
+        : '';
+      var borderColor = unitStatus ? 'var(--green)' : 'var(--border)';
+      html += '<div style="background:var(--surf);border:1px solid '+borderColor+';border-radius:14px;padding:14px;margin-bottom:10px">'
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
         + '<div style="flex:1">'
         + '<div style="font-weight:900;font-size:1rem;margin-bottom:4px">' + title + '</div>'
@@ -680,6 +695,7 @@ async function loadMovesList(type) {
         + '</div>'
         + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">'
         + badge
+        + statusBadge
         + (type==='arrive' && m.status==='pending' ? '<span style="background:var(--amber)22;color:var(--amber);border-radius:6px;padding:2px 8px;font-size:.65rem">⏳ '+(LANG==='ar'?'بانتظار التفعيل':'Pending')+'</span>' : '')
         + (type==='arrive' && m.status==='pending' && m.unit_id ? '<button onclick="confirmArrival(\'' + esc(m.id) + '\',\'' + esc(m.unit_id) + '\')" style="background:var(--green)22;border:1px solid var(--green);border-radius:8px;padding:5px 10px;font-size:.72rem;color:var(--green);cursor:pointer;font-family:inherit">✅ '+(LANG==='ar'?'تأكيد الانتقال':'Confirm Move')+'</button>' : '')
         + '<button onclick="deleteMoveEntry(\'' + esc(m.id) + '\',\'' + type + '\')" style="background:var(--red)22;border:1px solid var(--red);border-radius:8px;padding:4px 10px;color:var(--red);font-size:.72rem;cursor:pointer">🗑️</button>'
