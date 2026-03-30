@@ -1109,7 +1109,7 @@ async function printDepartureReport() {
   if(!listEl) return;
 
   var { data: moves } = await sb.from('moves').select('*').eq('type','depart').order('apartment',{ascending:true});
-  var { data: vacant } = await sb.from('units').select('apartment,room,monthly_rent').eq('is_vacant',true).order('apartment',{ascending:true});
+  var { data: vacant } = await sb.from('units').select('id,apartment,room,monthly_rent').eq('is_vacant',true).order('apartment',{ascending:true});
   var { data: allUnitsForPdf } = await sb.from('units').select('id,monthly_rent');
   window._pdfUnitMap = {};
   (allUnitsForPdf||[]).forEach(function(u){ window._pdfUnitMap[u.id]=u; });
