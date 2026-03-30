@@ -1105,6 +1105,13 @@ async function printDepartureReport() {
   var { data: allUnitsForPdf } = await sb.from('units').select('id,monthly_rent');
   window._pdfUnitMap = {};
   (allUnitsForPdf||[]).forEach(function(u){ window._pdfUnitMap[u.id]=u; });
+  // Fetch pending bookings and transfers for PDF
+  var { data: pdfArrivals } = await sb.from('moves').select('unit_id').eq('type','arrive').eq('status','pending');
+  var { data: pdfTransfers } = await sb.from('internal_transfers').select('to_unit_id').like('notes','%مجدوله%');
+  var pdfBookedIds = {};
+  (pdfArrivals||[]).forEach(function(a){ if(a.unit_id) pdfBookedIds[a.unit_id]='booking'; });
+  var pdfTransferIds = {};
+  (pdfTransfers||[]).forEach(function(t){ if(t.to_unit_id) pdfTransferIds[t.to_unit_id]='transfer'; });
   moves = moves||[]; vacant = vacant||[];
 
   var today = new Date().toLocaleDateString(LANG==='ar'?'ar-AE':'en-GB');
@@ -1132,6 +1139,7 @@ async function printDepartureReport() {
     + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #1a3a6a">الغرفة</th>'
     + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #1a3a6a">الإيجار</th>'
     + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #1a3a6a">تاريخ المغادرة</th>'
+    + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #1a3a6a">الحالة</th>'
     + '</tr></thead><tbody>'
     + moves.sort(function(a,b){
         var n1=parseInt(a.apartment||0), n2=parseInt(b.apartment||0);
@@ -1142,6 +1150,12 @@ async function printDepartureReport() {
           +'<td style="padding:7px 8px;font-size:12px">غرفة '+m.room+'</td>'
           +(function(){ var u=m.unit_id?(window._pdfUnitMap||{})[m.unit_id]:null; var r=u?Number(u.monthly_rent||0):0; return '<td style="padding:7px 8px;font-size:12px;color:#e67e22;font-weight:600">'+(r?r.toLocaleString()+' AED':'—')+'</td>'; })()
           +'<td style="padding:7px 8px;font-size:12px;color:#555">'+(m.move_date||'—')+'</td>'
+          +(function(){
+            var st = m.unit_id ? (pdfBookedIds[m.unit_id] || pdfTransferIds[m.unit_id]) : null;
+            if(st==='booking') return '<td style="padding:7px 8px;font-size:12px;color:#27ae60;font-weight:700">✅ محجوز</td>';
+            if(st==='transfer') return '<td style="padding:7px 8px;font-size:12px;color:#8e44ad;font-weight:700">✅ نقل</td>';
+            return '<td style="padding:7px 8px;font-size:12px;color:#aaa">—</td>';
+          })()
           +'</tr>';
       }).join('')
     + '</tbody></table>'
