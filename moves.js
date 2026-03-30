@@ -635,6 +635,16 @@ async function loadMovesList(type) {
         + '<div style="font-size:1.6rem;font-weight:800;color:var(--amber)">'+vacantCount+'</div>'
         + '<div style="font-size:.7rem;color:var(--muted);margin-top:2px">🏠 '+(LANG==='ar'?'شاغرة حالياً':'Currently Vacant')+'</div></div>'
         + '</div>';
+      // Booked departures summary
+      var bookedDepartCount = data.filter(function(m){ return m.unit_id && (bookedUnitIds[String(m.unit_id)] || transferToIds[String(m.unit_id)]); }).length;
+      var remainingDepart = departCount - bookedDepartCount;
+      if(bookedDepartCount > 0) {
+        html += '<div style="background:var(--green)15;border:1px solid var(--green)44;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">'
+          + '<span style="font-size:.82rem;color:var(--green);font-weight:700">✅ '+bookedDepartCount+' '+(LANG==='ar'?'غرفة محجوزة أو منقولة':'booked/transferred')+'</span>'
+          + '<span style="font-size:.82rem;color:var(--red);font-weight:700">باقي '+remainingDepart+' '+(LANG==='ar'?'بدون حجز':'without booking')+'</span>'
+          + '</div>';
+      }
+
       // PDF button
       html += '<button onclick="printDepartureReport()" style="width:100%;padding:11px;background:var(--accent);border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer;margin-bottom:10px">📄 طباعة / PDF التقرير</button>';
 
