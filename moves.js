@@ -644,14 +644,22 @@ async function loadMovesList(type) {
             var n1=parseInt((a.apartment||'').replace(/\D/g,''))||0, n2=parseInt((b.apartment||'').replace(/\D/g,''))||0;
             return n1!==n2 ? n1-n2 : String(a.room||'').localeCompare(String(b.room||''),undefined,{numeric:true});
           }).map(function(u){
-            return '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--border)">'
-              +'<span style="font-weight:700">🏠 شقة '+esc(String(u.apartment||''))+' — غرفة '+esc(String(u.room||''))+'</span>'
+            var isBooked = bookedUnitIds[u.id] || transferToIds[u.id];
+            var bookLabel = isBooked === 'booking' ? ' <span style="color:var(--green);font-size:.68rem;font-weight:700">✅ محجوز</span>'
+              : isBooked === 'transfer' ? ' <span style="color:var(--purple);font-size:.68rem;font-weight:700">✅ نقل</span>' : '';
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border)">'
+              +'<span style="font-weight:700">🏠 شقة '+esc(String(u.apartment||''))+' — غرفة '+esc(String(u.room||''))+bookLabel+'</span>'
               +'<span style="font-size:.72rem;color:var(--amber)">'+esc(u.monthly_rent||0)+' AED</span>'
               +'</div>';
           }).join('')
         : '<div style="color:var(--muted);font-size:.8rem">لا توجد وحدات شاغرة</div>';
+      var bookedVacantCount = (vacantUnits||[]).filter(function(u){ return bookedUnitIds[u.id] || transferToIds[u.id]; }).length;
+      var remainingVacant = vacantCount - bookedVacantCount;
       html += '<div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">'
-        + '<div style="font-size:.85rem;font-weight:800;margin-bottom:8px">🏠 '+(LANG==='ar'?'الوحدات الشاغرة':'Vacant Units')+' ('+vacantCount+')</div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+        + '<div style="font-size:.85rem;font-weight:800">🏠 '+(LANG==='ar'?'الوحدات الشاغرة':'Vacant Units')+' ('+vacantCount+')</div>'
+        + (bookedVacantCount > 0 ? '<div style="font-size:.75rem;color:var(--green);font-weight:700">✅ '+bookedVacantCount+' محجوز | باقي '+remainingVacant+'</div>' : '')
+        + '</div>'
         + vacantHtml
         + '</div>';
 
@@ -1160,12 +1168,18 @@ async function printDepartureReport() {
       }).join('')
     + '</tbody></table>'
 
+    + (function(){
+        var bCount = vacant.filter(function(u){ return pdfBookedIds[u.id] || pdfTransferIds[u.id]; }).length;
+        var rem = vacant.length - bCount;
+        return bCount > 0 ? '<div style="font-size:13px;color:#27ae60;font-weight:700;margin-bottom:6px">✅ '+bCount+' محجوز | باقي '+rem+' شاغر</div>' : '';
+      })()
     + '<div style="font-size:14px;font-weight:800;margin-bottom:8px;color:#1a3a6a">🏠 الوحدات الشاغرة ('+vacant.length+')</div>'
     + '<table style="width:100%;border-collapse:collapse">'
     + '<thead><tr style="background:#fffbf0">'
     + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #e67e22">الشقة</th>'
     + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #e67e22">الغرفة</th>'
     + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #e67e22">الإيجار</th>'
+    + '<th style="padding:8px;text-align:right;font-size:12px;border-bottom:2px solid #e67e22">الحالة</th>'
     + '</tr></thead><tbody>'
     + vacant.sort(function(a,b){
         var n1=parseInt(a.apartment||0), n2=parseInt(b.apartment||0);
@@ -1175,6 +1189,12 @@ async function printDepartureReport() {
           +'<td style="padding:7px 8px;font-size:12px">شقة '+u.apartment+'</td>'
           +'<td style="padding:7px 8px;font-size:12px">غرفة '+u.room+'</td>'
           +'<td style="padding:7px 8px;font-size:12px;color:#e67e22">'+Number(u.monthly_rent||0).toLocaleString()+' AED</td>'
+          +(function(){
+            var st = pdfBookedIds[u.id] || pdfTransferIds[u.id];
+            if(st==='booking') return '<td style="padding:7px 8px;font-size:12px;color:#27ae60;font-weight:700">✅ محجوز</td>';
+            if(st==='transfer') return '<td style="padding:7px 8px;font-size:12px;color:#8e44ad;font-weight:700">✅ نقل</td>';
+            return '<td style="padding:7px 8px;font-size:12px;color:#aaa">—</td>';
+          })()
           +'</tr>';
       }).join('')
     + '</tbody></table>'
