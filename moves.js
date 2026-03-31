@@ -638,6 +638,30 @@ async function loadMovesList(type) {
       // Booked departures summary
       var bookedDepartCount = data.filter(function(m){ return m.unit_id && (bookedUnitIds[String(m.unit_id)] || transferToIds[String(m.unit_id)]); }).length;
       var remainingDepart = departCount - bookedDepartCount;
+      // ── الملخص الإجمالي ──
+      var totalAvailable = departCount + vacantCount;
+      var totalBooked = bookedDepartCount + bookedVacantCount;
+      var totalRemaining = totalAvailable - totalBooked;
+      html += '<div style="background:var(--surf2);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">'
+        + '<div style="font-size:.85rem;font-weight:800;margin-bottom:10px">📊 '+(LANG==='ar'?'الملخص الإجمالي':'Overall Summary')+'</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+        + '<div style="background:var(--surf);border-radius:10px;padding:10px;text-align:center">'
+        + '<div style="font-size:1.4rem;font-weight:800;color:var(--text)">'+totalAvailable+'</div>'
+        + '<div style="font-size:.65rem;color:var(--muted);margin-top:2px">'+(LANG==='ar'?'إجمالي المتاح':'Total Available')+'</div>'
+        + '<div style="font-size:.62rem;color:var(--muted)">'+(LANG==='ar'?'('+departCount+' مغادر + '+vacantCount+' شاغر)':'('+departCount+' dep + '+vacantCount+' vacant)')+'</div>'
+        + '</div>'
+        + '<div style="background:var(--green)15;border:1px solid var(--green)44;border-radius:10px;padding:10px;text-align:center">'
+        + '<div style="font-size:1.4rem;font-weight:800;color:var(--green)">'+totalBooked+'</div>'
+        + '<div style="font-size:.65rem;color:var(--muted);margin-top:2px">✅ '+(LANG==='ar'?'محجوز':'Booked')+'</div>'
+        + '<div style="font-size:.62rem;color:var(--muted)">'+(LANG==='ar'?'('+bookedDepartCount+' من مغادر + '+bookedVacantCount+' من شاغر)':'('+bookedDepartCount+' dep + '+bookedVacantCount+' vacant)')+'</div>'
+        + '</div>'
+        + '</div>'
+        + '<div style="margin-top:8px;padding:8px 12px;background:'+(totalRemaining===0?'var(--green)22':'var(--red)15')+';border-radius:10px;text-align:center">'
+        + '<span style="font-size:.85rem;font-weight:800;color:'+(totalRemaining===0?'var(--green)':'var(--red)')+'">'
+        + (totalRemaining===0 ? '✅ '+(LANG==='ar'?'كل الغرف محجوزة':'All rooms booked') : (LANG==='ar'?'باقي '+totalRemaining+' غرفة بدون حجز':''+totalRemaining+' rooms without booking'))
+        + '</span></div>'
+        + '</div>';
+
       if(bookedDepartCount > 0) {
         html += '<div style="background:var(--green)15;border:1px solid var(--green)44;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">'
           + '<span style="font-size:.82rem;color:var(--green);font-weight:700">✅ '+bookedDepartCount+' '+(LANG==='ar'?'غرفة محجوزة أو منقولة':'booked/transferred')+'</span>'
@@ -1131,6 +1155,12 @@ async function printDepartureReport() {
   var pdfTransferIds = {};
   (pdfTransfers||[]).forEach(function(t){ if(t.to_unit_id) pdfTransferIds[t.to_unit_id]='transfer'; });
   moves = moves||[]; vacant = vacant||[];
+  // Calculate summary
+  var pdfBookedDepart = moves.filter(function(m){ return m.unit_id && (pdfBookedIds[m.unit_id] || pdfTransferIds[m.unit_id]); }).length;
+  var pdfBookedVacant = vacant.filter(function(u){ return pdfBookedIds[u.id] || pdfTransferIds[u.id]; }).length;
+  var pdfTotalAvail   = moves.length + vacant.length;
+  var pdfTotalBooked  = pdfBookedDepart + pdfBookedVacant;
+  var pdfTotalRemain  = pdfTotalAvail - pdfTotalBooked;
 
   var today = new Date().toLocaleDateString(LANG==='ar'?'ar-AE':'en-GB');
   var monthLabel = new Date().toLocaleDateString(LANG==='ar'?'ar-AE':'en-GB',{month:'long',year:'numeric'});
@@ -1149,6 +1179,23 @@ async function printDepartureReport() {
     + '<div style="font-size:24px;font-weight:800;color:#e67e22">'+vacant.length+'</div>'
     + '<div style="font-size:12px;color:#555">🏠 شاغرة حالياً</div></div>'
     + '</div>'
+
+    // Summary card
+    + '<div style="border:1.5px solid #ddd;border-radius:10px;padding:14px;margin-bottom:16px">'
+    + '<div style="font-size:13px;font-weight:800;color:#1a3a6a;margin-bottom:10px">📊 الملخص الإجمالي</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">'
+    + '<div style="background:#f0f4ff;border-radius:8px;padding:8px">'
+    + '<div style="font-size:20px;font-weight:800;color:#1a3a6a">'+pdfTotalAvail+'</div>'
+    + '<div style="font-size:11px;color:#555">إجمالي المتاح</div>'
+    + '<div style="font-size:10px;color:#888">('+moves.length+' مغادر + '+vacant.length+' شاغر)</div></div>'
+    + '<div style="background:#f0fff4;border-radius:8px;padding:8px">'
+    + '<div style="font-size:20px;font-weight:800;color:#27ae60">'+pdfTotalBooked+'</div>'
+    + '<div style="font-size:11px;color:#555">✅ محجوز</div>'
+    + '<div style="font-size:10px;color:#888">('+pdfBookedDepart+' مغادر + '+pdfBookedVacant+' شاغر)</div></div>'
+    + '<div style="background:'+(pdfTotalRemain===0?'#f0fff4':'#fff0f0')+';border-radius:8px;padding:8px">'
+    + '<div style="font-size:20px;font-weight:800;color:'+(pdfTotalRemain===0?'#27ae60':'#c0392b')+'">'+pdfTotalRemain+'</div>'
+    + '<div style="font-size:11px;color:#555">'+(pdfTotalRemain===0?'✅ كل الغرف محجوزة':'باقي بدون حجز')+'</div>'
+    + '</div></div></div>'
 
     + '<div style="font-size:14px;font-weight:800;margin-bottom:8px;color:#1a3a6a">📤 قائمة المغادرين ('+moves.length+')</div>'
     + '<table style="width:100%;border-collapse:collapse;margin-bottom:16px">'
