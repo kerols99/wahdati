@@ -864,7 +864,18 @@ async function activateReservedUnits() {
     if(pendingArrivals && pendingArrivals.length) {
       for(var j=0; j<pendingArrivals.length; j++) {
         var mv = pendingArrivals[j];
-        if(!mv.unit_id) continue;
+        // Fallback: if unit_id null, find by apartment+room
+        if(!mv.unit_id) {
+          var { data: foundUnit } = await sb.from('units')
+            .select('id').eq('apartment', String(mv.apartment)).eq('room', String(mv.room)).maybeSingle();
+          if(foundUnit && foundUnit.id) {
+            mv.unit_id = foundUnit.id;
+            // Patch the move record too
+            await sb.from('moves').update({ unit_id: foundUnit.id }).eq('id', mv.id);
+          } else {
+            continue; // still can't find unit — skip
+          }
+        }
         // Update unit with new tenant
         await sb.from('units').update({
           tenant_name: mv.new_tenant_name || mv.tenant_name,
@@ -880,10 +891,29 @@ async function activateReservedUnits() {
         }).eq('id', parseInt(mv.unit_id));
         // Mark move as done
         await sb.from('moves').update({ status: 'done' }).eq('id', mv.id);
-        // Delete duplicate deposit (عربون حجز) if confirmation deposit was added
+        // حذف عربون الحجز وتسجيل التأمين النهائي إن لم يكن موجوداً
         await sb.from('deposits').delete()
-          .eq('unit_id', parseInt(mv.unit_id))
-          .like('notes','%عربون حجز%');
+          .eq('unit_id', parseInt(mv.unit_id)).like('notes','%عربون حجز%');
+        if(mv.new_deposit && mv.new_deposit > 0) {
+          var { data: depExists } = await sb.from('deposits')
+            .select('id').eq('unit_id', parseInt(mv.unit_id)).eq('status','held')
+            .eq('tenant_name', mv.new_tenant_name || mv.tenant_name).limit(1);
+          if(!depExists || !depExists.length) {
+            var { data: unitInfo2 } = await sb.from('units')
+              .select('apartment,room').eq('id', parseInt(mv.unit_id)).single();
+            if(unitInfo2) {
+              await sb.from('deposits').insert({
+                unit_id: parseInt(mv.unit_id),
+                apartment: String(unitInfo2.apartment), room: String(unitInfo2.room),
+                tenant_name: mv.new_tenant_name || mv.tenant_name,
+                amount: mv.new_deposit, status: 'held',
+                refund_amount: 0, deduction_amount: 0,
+                deposit_received_date: mv.new_start_date || mv.move_date || new Date().toISOString().slice(0,10),
+                notes: 'مسجّل عند تفعيل الحجز تلقائياً'
+              });
+            }
+          }
+        }
       }
       toast('✅ تم تأكيد '+pendingArrivals.length+' حجز تلقائياً', 'ok');
     }

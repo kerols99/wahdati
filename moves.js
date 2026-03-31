@@ -430,7 +430,6 @@ async function saveArrivalEntry(btn){
       apartment: parseInt(apt),
       room: parseInt(room),
       move_date: date||null,
-      notes: notes||null,
       phone: phone||null,
       persons_count: persons,
       new_tenant_name: name,
@@ -719,6 +718,30 @@ async function loadMovesList(type) {
             + '<div style="font-size:.72rem;color:var(--muted)">' + esc(fmtDate(m.move_date, LANG) || '') + '</div>'
             + '</div>';
         }).join('')
+        + '</div>';
+    }
+    // ── Arrive summary (NaN fix) ──
+    if(type==='arrive') {
+      var pendingCount = data.filter(function(m){ return m.status==='pending'; }).length;
+      var { data: vacantArr } = await sb.from('units').select('id').eq('is_vacant',true);
+      var vacantNow = (vacantArr||[]).length;
+      html += '<div style="background:var(--surf2);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">'
+        + '<div style="font-size:.85rem;font-weight:800;margin-bottom:10px">'+(LANG==='ar'?'الملخص الإجمالي':'Summary')+'</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+        + '<div style="background:var(--green)15;border:1px solid var(--green)44;border-radius:10px;padding:10px;text-align:center">'
+        + '<div style="font-size:1.4rem;font-weight:800;color:var(--green)">'+pendingCount+'</div>'
+        + '<div style="font-size:.65rem;color:var(--muted);margin-top:2px">'+(LANG==='ar'?'محجوز':'Booked')+'</div>'
+        + '</div>'
+        + '<div style="background:var(--amber)15;border:1px solid var(--amber)44;border-radius:10px;padding:10px;text-align:center">'
+        + '<div style="font-size:1.4rem;font-weight:800;color:var(--amber)">'+vacantNow+'</div>'
+        + '<div style="font-size:.65rem;color:var(--muted);margin-top:2px">'+(LANG==='ar'?'شاغر حالياً':'Vacant Now')+'</div>'
+        + '</div>'
+        + '</div>'
+        + (vacantNow > 0
+          ? '<div style="padding:8px 12px;background:var(--red)15;border-radius:10px;text-align:center;margin-top:8px">'
+            + '<span style="font-size:.82rem;font-weight:700;color:var(--red)">'+(LANG==='ar'?'باقي '+vacantNow+' غرفة بدون حجز':vacantNow+' rooms without booking')+'</span></div>'
+          : '<div style="padding:8px 12px;background:var(--green)15;border-radius:10px;text-align:center;margin-top:8px">'
+            + '<span style="font-size:.82rem;font-weight:700;color:var(--green)">'+(LANG==='ar'?'كل الغرف محجوزة':'All rooms booked')+'</span></div>')
         + '</div>';
     }
     data.forEach(function(m) {
@@ -1589,19 +1612,24 @@ async function confirmArrival(moveId, unitId) {
       tenant_name2: null, phone2: null
     }).eq('id', parseInt(unitId));
 
-    // Register deposit — delete عربون first to avoid duplicates
+    // Register deposit — delete عربون first, guard duplicate
     if(move.new_deposit && move.new_deposit > 0 && unit) {
       await sb.from('deposits').delete()
         .eq('unit_id', parseInt(unitId)).like('notes','%عربون حجز%');
-      await sb.from('deposits').insert({
-        unit_id: parseInt(unitId),
-        apartment: String(unit.apartment), room: String(unit.room),
-        tenant_name: move.new_tenant_name || move.tenant_name,
-        amount: move.new_deposit, status: 'held',
-        refund_amount: 0, deduction_amount: 0,
-        deposit_received_date: move.new_start_date || move.move_date || new Date().toISOString().slice(0,10),
-        notes: 'مسجّل عند تأكيد الانتقال'
-      });
+      var { data: existingDep } = await sb.from('deposits')
+        .select('id').eq('unit_id', parseInt(unitId)).eq('status','held')
+        .eq('tenant_name', move.new_tenant_name || move.tenant_name).limit(1);
+      if(!existingDep || !existingDep.length) {
+        await sb.from('deposits').insert({
+          unit_id: parseInt(unitId),
+          apartment: String(unit.apartment), room: String(unit.room),
+          tenant_name: move.new_tenant_name || move.tenant_name,
+          amount: move.new_deposit, status: 'held',
+          refund_amount: 0, deduction_amount: 0,
+          deposit_received_date: move.new_start_date || move.move_date || new Date().toISOString().slice(0,10),
+          notes: 'مسجّل عند تأكيد الانتقال'
+        });
+      }
     }
 
     // Mark move done
