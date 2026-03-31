@@ -405,8 +405,7 @@ async function loadLastPayment() {
       if(lr && re && !re.value) re.value = lr;
       if(la && lr && window.autoFillRent) setTimeout(autoFillRent, 100);
     } catch(e) {}
-    var { data: last } = await activateReservedUnits();
-  await sb.from('rent_payments').select('*').order('payment_date',{ascending:false}).limit(1);
+    var { data: last } = await sb.from('rent_payments').select('*').order('payment_date',{ascending:false}).limit(1);
     if(!last||!last[0]) return;
     var p = last[0];
     _lastPaymentData = p;
@@ -669,6 +668,8 @@ window.loadHome = async function(btn, force) {
   var now = new Date();
   var ym  = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   loadSmartDash(ym);
+  // تفعيل الحجوزات والنقلات المجدولة تلقائياً عند كل فتح للرئيسية
+  activateReservedUnits();
   if(!window._appReadyFired){ window._appReadyFired=true; document.dispatchEvent(new Event('appReady')); }
 };
 
@@ -846,12 +847,11 @@ async function activateReservedUnits() {
       .eq('unit_status','reserved')
       .lte('start_date', today);
 
-    if(!toActivate || !toActivate.length) return;
-
-    for(var i=0; i<toActivate.length; i++) {
-      await sb.from('units').update({ unit_status: 'occupied' }).eq('id', toActivate[i].id);
-    }
-    if(toActivate.length > 0) {
+    // تفعيل الوحدات المحجوزة التي حان تاريخها
+    if(toActivate && toActivate.length) {
+      for(var i=0; i<toActivate.length; i++) {
+        await sb.from('units').update({ unit_status: 'occupied' }).eq('id', toActivate[i].id);
+      }
       toast('✅ تم تفعيل '+toActivate.length+' وحدة محجوزة', 'ok');
     }
 
