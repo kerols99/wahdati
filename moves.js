@@ -640,29 +640,7 @@ async function loadMovesList(type) {
       var remainingDepart = departCount - bookedDepartCount;
       // totalBooked will be calculated after bookedVacantCount is defined below
 
-      html += '<div style="background:var(--surf2);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">'
-        + '<div style="font-size:.85rem;font-weight:800;margin-bottom:10px">📊 '+(LANG==='ar'?'الملخص الإجمالي':'Overall Summary')+'</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
-        + '<div style="background:var(--surf);border-radius:10px;padding:10px;text-align:center">'
-        + '<div style="font-size:1.4rem;font-weight:800;color:var(--text)">'+totalAvailable+'</div>'
-        + '<div style="font-size:.65rem;color:var(--muted);margin-top:2px">'+(LANG==='ar'?'إجمالي المتاح':'Total Available')+'</div>'
-        + '<div style="font-size:.62rem;color:var(--muted)">'+(LANG==='ar'?'('+departCount+' مغادر + '+vacantCount+' شاغر)':'('+departCount+' dep + '+vacantCount+' vacant)')+'</div>'
-        + '</div>'
-        + '<div style="background:var(--green)15;border:1px solid var(--green)44;border-radius:10px;padding:10px;text-align:center">'
-        + '<div style="font-size:1.4rem;font-weight:800;color:var(--green)">'+totalBooked+'</div>'
-        + '<div style="font-size:.65rem;color:var(--muted);margin-top:2px">✅ '+(LANG==='ar'?'محجوز':'Booked')+'</div>'
-        + '<div style="font-size:.62rem;color:var(--muted)">'
-        + '📥 '+totalNewBooked+' '+(LANG==='ar'?'جديد':'new')
-        + ' · 🔄 '+totalTransferBooked+' '+(LANG==='ar'?'نقل':'transfer')
-        + '</div></div>'
-        + '</div>'
-        + '<div style="padding:8px 12px;background:'+(totalRemaining===0?'var(--green)22':'var(--red)15')+';border-radius:10px;text-align:center">'
-        + '<span style="font-size:.85rem;font-weight:800;color:'+(totalRemaining===0?'var(--green)':'var(--red)')+'">'
-        + (totalRemaining===0 ? '✅ '+(LANG==='ar'?'كل الغرف محجوزة':'All rooms booked') : (LANG==='ar'?'باقي '+totalRemaining+' غرفة بدون حجز':''+totalRemaining+' rooms without booking'))
-        + '</span></div>'
-        + '</div>';
 
-      if(bookedDepartCount > 0) {
         html += '<div style="background:var(--green)15;border:1px solid var(--green)44;border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">'
           + '<span style="font-size:.82rem;color:var(--green);font-weight:700">✅ '+bookedDepartCount+' '+(LANG==='ar'?'غرفة محجوزة أو منقولة':'booked/transferred')+'</span>'
           + '<span style="font-size:.82rem;color:var(--red);font-weight:700">باقي '+remainingDepart+' '+(LANG==='ar'?'بدون حجز':'without booking')+'</span>'
@@ -696,6 +674,30 @@ async function loadMovesList(type) {
       var totalTransferBooked = data.filter(function(m){ return m.unit_id && transferToIds[String(m.unit_id)]; }).length
         + (vacantUnits||[]).filter(function(u){ return transferToIds[String(u.id)]; }).length;
       var totalNewBooked = totalBooked - totalTransferBooked;
+
+      html += '<div style="background:var(--surf2);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">'
+        + '<div style="font-size:.85rem;font-weight:800;margin-bottom:10px">📊 '+(LANG==='ar'?'الملخص الإجمالي':'Overall Summary')+'</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+        + '<div style="background:var(--surf);border-radius:10px;padding:10px;text-align:center">'
+        + '<div style="font-size:1.4rem;font-weight:800;color:var(--text)">'+totalAvailable+'</div>'
+        + '<div style="font-size:.65rem;color:var(--muted);margin-top:2px">'+(LANG==='ar'?'إجمالي المتاح':'Total Available')+'</div>'
+        + '<div style="font-size:.62rem;color:var(--muted)">'+(LANG==='ar'?'('+departCount+' مغادر + '+vacantCount+' شاغر)':'('+departCount+' dep + '+vacantCount+' vacant)')+'</div>'
+        + '</div>'
+        + '<div style="background:var(--green)15;border:1px solid var(--green)44;border-radius:10px;padding:10px;text-align:center">'
+        + '<div style="font-size:1.4rem;font-weight:800;color:var(--green)">'+totalBooked+'</div>'
+        + '<div style="font-size:.65rem;color:var(--muted);margin-top:2px">✅ '+(LANG==='ar'?'محجوز':'Booked')+'</div>'
+        + '<div style="font-size:.62rem;color:var(--muted)">'
+        + '📥 '+totalNewBooked+' '+(LANG==='ar'?'جديد':'new')
+        + ' · 🔄 '+totalTransferBooked+' '+(LANG==='ar'?'نقل':'transfer')
+        + '</div></div>'
+        + '</div>'
+        + '<div style="padding:8px 12px;background:'+(totalRemaining===0?'var(--green)22':'var(--red)15')+';border-radius:10px;text-align:center">'
+        + '<span style="font-size:.85rem;font-weight:800;color:'+(totalRemaining===0?'var(--green)':'var(--red)')+'">'
+        + (totalRemaining===0 ? '✅ '+(LANG==='ar'?'كل الغرف محجوزة':'All rooms booked') : (LANG==='ar'?'باقي '+totalRemaining+' غرفة بدون حجز':''+totalRemaining+' rooms without booking'))
+        + '</span></div>'
+        + '</div>';
+
+      if(bookedDepartCount > 0) {
       html += '<div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
         + '<div style="font-size:.85rem;font-weight:800">🏠 '+(LANG==='ar'?'الوحدات الشاغرة':'Vacant Units')+' ('+vacantCount+')</div>'
