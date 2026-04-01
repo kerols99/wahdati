@@ -438,7 +438,7 @@
   <input class="inp" id="rdep-month" type="month" style="margin-bottom:8px"/>
 </div>
 <div style="display:flex;gap:8px;margin-bottom:4px">
-  <button class="btn bg" style="flex:1;font-size:.82rem" onclick="document.getElementById('rdep-month').value=''; loadDepRpt(this)">🔒 كل التأمينات</button>
+  <button class="btn bg" style="flex:1;font-size:.82rem" data-click="loadAllDeps" id="btn-load-all-deps">🔒 كل التأمينات</button>
   <button class="btn bp" style="flex:1;font-size:.82rem" data-click="loadDepRpt" id="btn-load-dep-rpt">📅 تأمينات الشهر</button>
 </div>
 <div id="rDepOut" style="margin-top:12px"></div>

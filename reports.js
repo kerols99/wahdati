@@ -543,8 +543,7 @@ async function loadDepRpt(btn) {
           +'<div style="font-size:.72rem;color:var(--muted)">'+escapeHtml(u.tenant_name||'—')+'</div></div>'
           +'<div style="display:flex;align-items:center;gap:8px">'
           +'<b style="color:var(--amber)">'+(u.deposit||0)+' AED</b>'
-          +'<button onclick="window._qrd={apt:'+u.apartment+',room:\''+u.room+'\',amt:'+(u.deposit||0)+',name:\''+escapeHtml(u.tenant_name||'')+'\',startDate:\''+((u.start_date||'').slice(0,10))+'\'};quickRegisterDeposit('+u.apartment+',\''+u.room+'\','+(u.deposit||0)+',\''+escapeHtml(u.tenant_name||'')+'\')"
-          style="padding:4px 10px;background:var(--green)22;border:1px solid var(--green);border-radius:8px;color:var(--green);font-size:.7rem;font-family:var(--font);cursor:pointer">+ سجّل</button>'
+          +'<button onclick="window._qrd={apt:'+u.apartment+',room:\''+u.room+'\',amt:'+(u.deposit||0)+',name:\''+escapeHtml(u.tenant_name||'')+'\',startDate:\''+((u.start_date||'').slice(0,10))+'\'};quickRegisterDeposit('+u.apartment+',\''+u.room+'\','+(u.deposit||0)+',\''+escapeHtml(u.tenant_name||'')+'\')" style="padding:4px 10px;background:var(--green)22;border:1px solid var(--green);border-radius:8px;color:var(--green);font-size:.7rem;font-family:var(--font);cursor:pointer">+ سجّل</button>'
           +'</div></div>';
       });
       html += '</div>';
@@ -1198,7 +1197,12 @@ function exportAnnualCSV() {
   setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
 }
 
-window.loadMonthly=loadMonthly; window.loadExpRpt=loadExpRpt; window.loadDepRpt=loadDepRpt; window.loadAnnual=loadAnnual; window.exportPDF=exportPDF; window.loadStats=loadStats; window.exportAnnualCSV=exportAnnualCSV;
+function loadAllDeps(btn) {
+  var el = document.getElementById('rdep-month');
+  if(el) el.value = '';
+  loadDepRpt(btn);
+}
+window.loadAllDeps=loadAllDeps; window.loadMonthly=loadMonthly; window.loadExpRpt=loadExpRpt; window.loadDepRpt=loadDepRpt; window.loadAnnual=loadAnnual; window.exportPDF=exportPDF; window.loadStats=loadStats; window.exportAnnualCSV=exportAnnualCSV;
 
 // ══════════════════════════════════════════════════════
 // APARTMENT COMPARISON REPORT
