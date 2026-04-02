@@ -453,10 +453,11 @@ async function loadDepRpt(btn) {
     var unitById = {};
     units.forEach(function(u){ unitById[u.id]=u; });
 
-    // ── حذف التكرار: نفس unit_id + نفس tenant_name + نفس amount = نفس التأمين
+    // ── حذف التكرار: apartment+room+tenant+amount+status
+    // نستخدم apartment+room بدل unit_id لأن بعض السجلات القديمة unit_id فيها integer مش UUID
     var seen = new Set();
     var dedupedDeps = allDeps.filter(function(d){
-      var key = (d.unit_id||'') + '|' + (d.tenant_name||'') + '|' + (d.amount||0) + '|' + (d.status||'');
+      var key = String(d.apartment||'') + '|' + String(d.room||'') + '|' + (d.tenant_name||'') + '|' + (d.amount||0) + '|' + (d.status||'');
       if(seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -475,9 +476,11 @@ async function loadDepRpt(btn) {
     var totalActive   = totalHeld + totalPartial;
 
     function depRow(d) {
-      var u = d.unit_id ? unitById[d.unit_id] : null;
-      var apt  = u ? String(u.apartment) : String(d.apartment||'—');
-      var room = u ? String(u.room)      : String(d.room||'—');
+      // استخدم apartment/room من الـ deposit مباشرة — أموثق من البحث بـ unit_id
+      // لأن بعض السجلات القديمة unit_id فيها integer مش UUID
+      var u = d.unit_id ? unitById[String(d.unit_id)] : null;
+      var apt  = String(d.apartment || (u && u.apartment) || '—');
+      var room = String(d.room      || (u && u.room)      || '—');
       var name = d.tenant_name || (u && u.tenant_name) || '—';
       var dt   = (d.deposit_received_date||'').slice(0,10);
       var refDt= (d.refund_date||'').slice(0,10);
@@ -511,7 +514,7 @@ async function loadDepRpt(btn) {
       var aptGroups = {};
       items.forEach(function(d){
         var u = d.unit_id ? unitById[d.unit_id] : null;
-        var apt = u ? String(u.apartment) : String(d.apartment||'—');
+        var apt = String(d.apartment || (u && u.apartment) || '—');
         if(!aptGroups[apt]) aptGroups[apt] = { items:[], total:0 };
         aptGroups[apt].items.push(d);
         aptGroups[apt].total += Number(d.status==='refunded' ? (d.refund_amount||d.amount||0) : (d.amount||0));
