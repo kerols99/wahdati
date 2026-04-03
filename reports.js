@@ -462,9 +462,6 @@ async function loadDepRpt(btn) {
     });
 
     // ── تقسيم لـ 3 مجموعات
-    // debug: log deposits for apt 203
-    var _debug203 = dedupedDeps.filter(function(d){ return String(d.apartment)==='203'; });
-    console.log('203 deposits:', JSON.stringify(_debug203.map(function(d){ return {id:d.id,room:d.room,name:d.tenant_name,amt:d.amount,status:d.status,ref:d.refund_amount}; })));
     var held     = dedupedDeps.filter(function(d){ return d.status==='held' && !(d.refund_amount>0); });
     var partial  = dedupedDeps.filter(function(d){ return d.status==='held' && d.refund_amount>0; });
     var refunded = dedupedDeps.filter(function(d){ return d.status==='refunded'; });
