@@ -608,8 +608,17 @@ async function loadMovesList(type) {
   if(!listEl) return;
   listEl.innerHTML = '<div style="text-align:center;padding:20px"><span class="spin"></span></div>';
   try {
-    // نعرض بس pending — القديمة (done/cancelled) محفوظة في الـ DB للتقارير
-    var result = await sb.from('moves').select('*').eq('type', type).eq('status','pending').order('move_date', {ascending: true});
+    // نعرض pending للشهر الحالي والقادم فقط — القديمة محفوظة في DB للتقارير
+    var now = new Date();
+    var thisMonthStart = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-01';
+    var nextMonth = new Date(now.getFullYear(), now.getMonth()+2, 0); // آخر يوم في الشهر القادم
+    var nextMonthEnd = nextMonth.getFullYear() + '-' + String(nextMonth.getMonth()+1).padStart(2,'0') + '-' + String(nextMonth.getDate()).padStart(2,'0');
+
+    var result = await sb.from('moves').select('*')
+      .eq('type', type).eq('status','pending')
+      .gte('move_date', thisMonthStart)
+      .lte('move_date', nextMonthEnd)
+      .order('move_date', {ascending: true});
     if(result.error) throw result.error;
     var data = result.data || [];
     // Fetch units for rent info
