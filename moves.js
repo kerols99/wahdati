@@ -795,6 +795,7 @@ async function loadMovesList(type) {
         + statusBadge
         + (type==='arrive' && m.status==='pending' ? '<span style="background:var(--amber)22;color:var(--amber);border-radius:6px;padding:2px 8px;font-size:.65rem">⏳ '+(LANG==='ar'?'بانتظار التفعيل':'Pending')+'</span>' : '')
         + (type==='arrive' && m.status==='pending' && m.unit_id ? '<button onclick="confirmArrival(\'' + esc(m.id) + '\',\'' + esc(m.unit_id) + '\')" style="background:var(--green)22;border:1px solid var(--green);border-radius:8px;padding:5px 10px;font-size:.72rem;color:var(--green);cursor:pointer;font-family:inherit">✅ '+(LANG==='ar'?'تأكيد الانتقال':'Confirm Move')+'</button>' : '')
+        + (type==='depart' && m.status==='pending' ? '<button onclick="confirmDeparture(\'' + esc(m.id) + '\',\'' + esc(m.unit_id||'') + '\')" style="background:var(--amber)22;border:1px solid var(--amber);border-radius:8px;padding:5px 10px;font-size:.72rem;color:var(--amber);cursor:pointer;font-family:inherit">✅ '+(LANG==='ar'?'تأكيد المغادرة':'Confirm Departure')+'</button>' : '')
         + '<button onclick="deleteMoveEntry(\'' + esc(m.id) + '\',\'' + type + '\')" style="background:var(--red)22;border:1px solid var(--red);border-radius:8px;padding:4px 10px;color:var(--red);font-size:.72rem;cursor:pointer">🗑️</button>'
         + '</div></div></div>';
     });
@@ -1537,6 +1538,10 @@ async function undoInternalTransfer(btn) {
     var f = data.fromSnapshot;
     var t = data.toSnapshot;
 
+    // حفظ الحالة الحالية قبل التراجع
+    await archiveUnitToHistory(data.fromId, new Date().toISOString().slice(0,10), 'manual');
+    await archiveUnitToHistory(data.toId, new Date().toISOString().slice(0,10), 'manual');
+
     // Restore source unit (fromUnit) with original data
     await sb.from('units').update({
       tenant_name: f.tenant_name,
@@ -1597,6 +1602,45 @@ window.executeInternalTransfer = executeInternalTransfer;
 window.undoInternalTransfer = undoInternalTransfer;
 window.loadInternalTransfers = loadInternalTransfers;
 
+
+
+// ══ CONFIRM DEPARTURE ══
+async function confirmDeparture(moveId, unitId) {
+  if(!confirm(LANG==='ar'?'تأكيد مغادرة المستأجر وإفراغ الوحدة؟':'Confirm departure and vacate unit?')) return;
+  try {
+    var { data: move } = await sb.from('moves').select('*').eq('id', moveId).maybeSingle();
+    if(!move) { toast('Move not found','err'); return; }
+
+    var uid = unitId || move.unit_id;
+    // Fallback: find unit by apt+room
+    if(!uid) {
+      var { data: fu } = await sb.from('units').select('id')
+        .eq('apartment', String(move.apartment)).eq('room', String(move.room)).maybeSingle();
+      if(fu) uid = fu.id;
+    }
+
+    if(uid) {
+      // حفظ التاريخ أولاً — لو فشل يوقف
+      await archiveUnitToHistory(uid, move.move_date || new Date().toISOString().slice(0,10), 'departure');
+      // إفراغ الوحدة
+      await sb.from('units').update({
+        tenant_name: null, tenant_name2: null, phone: null, phone2: null,
+        monthly_rent: 0, rent1: 0, rent2: 0, deposit: 0,
+        persons_count: 1, start_date: null,
+        is_vacant: true, unit_status: 'available'
+      }).eq('id', uid);
+    }
+
+    await sb.from('moves').update({ status: 'done' }).eq('id', moveId);
+    toast(LANG==='ar'?'✅ تم تأكيد المغادرة':'✅ Departure confirmed','ok');
+    loadMovesList('depart');
+    if(window.loadHome) loadHome(null, false);
+  } catch(e) {
+    toast('خطأ: '+e.message,'err');
+    console.error('confirmDeparture:', e);
+  }
+}
+window.confirmDeparture = confirmDeparture;
 
 async function confirmArrival(moveId, unitId) {
   if(!confirm(LANG==='ar'?'هل تريد تأكيد انتقال المستأجر وتحديث بيانات الوحدة؟':'Confirm tenant move-in?')) return;
