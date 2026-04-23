@@ -551,8 +551,9 @@ function fmtDate(date, lang){
 
 
 function endOfCurrentMonthISO(){
+  // بيرجع أول يوم في الشهر الجاي (1 مايو مش 30 أبريل)
   var d = new Date();
-  return new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
+  return new Date(d.getFullYear(), d.getMonth()+1, 1).toISOString().split('T')[0];
 }
 async function hasDepartureForUnit(unitId){
   try {
