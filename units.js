@@ -142,7 +142,7 @@ async function loadUnits() {
           var d2 = nextYM + '-' + day;
           if(d2 <= monthEnd(nextYM)) departDates.push(d2);
         });
-        return sb.from('moves').select('unit_id,move_date').eq('type','depart').in('move_date', departDates);
+        return sb.from('moves').select('unit_id,move_date').eq('type','depart').eq('status','pending').in('move_date', departDates);
       })()
     ]);
 
@@ -339,7 +339,7 @@ var now = new Date();
 
   var { data: depRows } = await sb.from('deposits').select('*').eq('unit_id',unitId).order('deposit_received_date',{ascending:false});
   var depRows = depRows || [];
-  var { data: departRows } = await sb.from('moves').select('id,move_date').eq('type','depart').eq('unit_id',unitId).order('created_at',{ascending:false}).limit(1);
+  var { data: departRows } = await sb.from('moves').select('id,move_date').eq('type','depart').eq('status','pending').eq('unit_id',unitId).order('created_at',{ascending:false}).limit(1);
   var scheduledDepart = (departRows||[])[0] || null;
   // NOTE: deposit shown only if real record exists in deposits table
   // No fallback to unit.deposit — that is reference data only
