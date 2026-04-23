@@ -18,7 +18,14 @@ async function fetchOccupiedUnits(){
 
 async function fetchDepartures(){
   try {
-  var r = await sb.from('moves').select('*').eq('type','depart')
+    // بس الـ pending في الشهر الحالي والقادم
+    var now = new Date();
+    var thisMonthStart = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+    var nextMonthEnd = new Date(now.getFullYear(), now.getMonth()+2, 0).toISOString().slice(0,10);
+    var r = await sb.from('moves').select('*')
+      .eq('type','depart').eq('status','pending')
+      .gte('move_date', thisMonthStart)
+      .lte('move_date', nextMonthEnd)
       .order('created_at',{ascending:false});
     if(r.error) throw r.error;
     return r.data || [];
@@ -606,7 +613,12 @@ async function loadMovesList(type) {
   if(!listEl) return;
   listEl.innerHTML = '<div style="text-align:center;padding:20px"><span class="spin"></span></div>';
   try {
-    var result = await sb.from('moves').select('*').eq('type', type).order('created_at', {ascending: false});
+    // جيب بس الـ pending + الـ done/cancelled من آخر 10 أيام عشان يظهروا بعداد
+    var cutoff10 = new Date(); cutoff10.setDate(cutoff10.getDate()-10);
+    var cutoff10Str = cutoff10.toISOString().slice(0,10);
+    var result = await sb.from('moves').select('*').eq('type', type)
+      .or('status.eq.pending,and(status.neq.pending,created_at.gte.'+cutoff10Str+')')
+      .order('created_at', {ascending: false});
     if(result.error) throw result.error;
     var data = result.data || [];
     // Fetch units for rent info
@@ -632,6 +644,59 @@ async function loadMovesList(type) {
       return;
     }
     var html = '';
+    if(type==='arrive') {
+      // حذف تلقائي للحجوزات المنفّذة/الملغية اللي عدى عليها 10 أيام
+      var now10 = new Date();
+      var cutoff = new Date(now10.getTime() - 10*24*60*60*1000).toISOString().slice(0,10);
+      var oldDoneArrivals = data.filter(function(m){
+        return m.status !== 'pending' && (m.created_at||'').slice(0,10) < cutoff;
+      });
+      if(oldDoneArrivals.length) {
+        var oldIds = oldDoneArrivals.map(function(m){ return m.id; });
+        await sb.from('moves').delete().in('id', oldIds);
+        data = data.filter(function(m){ return oldIds.indexOf(m.id) === -1; });
+      }
+
+      // فلتر: بس الـ pending للعرض الفعلي
+      var pendingArrivalsData = data.filter(function(m){ return m.status === 'pending'; });
+      var newCount = pendingArrivalsData.length;
+
+      var arriveHtml = '';
+      // ملخص مختصر
+      arriveHtml += '<div style="background:var(--surf2);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">'
+        + '<div style="font-size:.85rem;font-weight:800;margin-bottom:8px">📥 '+(LANG==='ar'?'الحجوزات الجديدة القادمة':'Upcoming New Bookings')+'</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+        + '<div style="background:var(--green)15;border:1px solid var(--green)44;border-radius:10px;padding:10px;text-align:center">'
+        + '<div style="font-size:1.6rem;font-weight:800;color:var(--green)">'+newCount+'</div>'
+        + '<div style="font-size:.7rem;color:var(--muted);margin-top:2px">📥 '+(LANG==='ar'?'حجز جديد':'New Booking')+'</div></div>'
+        + '</div></div>';
+
+      // عرض كل حجز مع عداد أيام
+      pendingArrivalsData.forEach(function(m) {
+        var startDate = m.new_start_date || m.move_date || '';
+        var daysUntil = startDate ? Math.ceil((new Date(startDate) - now10) / (24*60*60*1000)) : null;
+        var urgentColor = daysUntil !== null ? (daysUntil <= 2 ? 'var(--red)' : daysUntil <= 7 ? 'var(--amber)' : 'var(--green)') : 'var(--muted)';
+        var borderColor = daysUntil !== null && daysUntil <= 2 ? 'var(--red)' : 'var(--green)';
+        var unit = m.unit_id ? unitMap[m.unit_id] : null;
+
+        arriveHtml += '<div style="background:var(--surf2);border-radius:12px;padding:12px;margin-bottom:8px;border-right:4px solid '+borderColor+'">'
+          + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+          + '<div style="flex:1">'
+          + '<div style="font-weight:700">📥 '+esc(m.new_tenant_name||m.tenant_name||'—')+'</div>'
+          + '<div style="font-size:.75rem;color:var(--muted)">شقة '+esc(String(m.apartment||''))+' — غرفة '+esc(String(m.room||''))+'</div>'
+          + '<div style="font-size:.7rem;color:var(--muted)">📅 '+startDate+'</div>'
+          + (daysUntil !== null ? '<div style="font-size:.68rem;color:'+urgentColor+';font-weight:700;margin-top:3px">⏳ '+(daysUntil>0?'بعد '+daysUntil+' يوم':'اليوم!')+'</div>' : '')
+          + '</div>'
+          + '<div style="display:flex;flex-direction:column;gap:4px">'
+          + (m.unit_id ? '<button onclick="confirmArrival(\'' + esc(m.id) + '\',\'' + esc(m.unit_id) + '\')" style="background:var(--green)22;border:1px solid var(--green);border-radius:8px;padding:5px 10px;font-size:.72rem;color:var(--green);cursor:pointer;font-family:inherit">✅ تأكيد</button>' : '')
+          + '<button onclick="cancelMove(\'' + esc(m.id) + '\')" style="background:var(--red)22;border:1px solid var(--red);border-radius:8px;padding:5px 10px;font-size:.72rem;color:var(--red);cursor:pointer;font-family:inherit">🗑️</button>'
+          + '</div>'
+          + '</div></div>';
+      });
+
+      listEl.innerHTML = arriveHtml;
+      return;
+    }
     if(type==='depart') {
       // Fetch vacant units count
       var { data: vacantUnits } = await sb.from('units').select('id,apartment,room,monthly_rent').eq('is_vacant', true).order('apartment',{ascending:true});
@@ -1721,3 +1786,17 @@ async function confirmScheduledTransfer(transferId, fromSnapshot, toSnapshot, fr
   }
 }
 window.confirmScheduledTransfer = confirmScheduledTransfer;
+
+// cancelMove — إلغاء حجز
+async function cancelMove(moveId) {
+  if(!confirm(LANG==='ar'?'هل تريد إلغاء هذا الحجز؟':'Cancel this booking?')) return;
+  try {
+    var { error } = await sb.from('moves').update({status:'cancelled'}).eq('id', moveId);
+    if(error) throw error;
+    toast(LANG==='ar'?'تم إلغاء الحجز':'Booking cancelled', 'ok');
+    loadMovesList('arrive');
+  } catch(e) {
+    toast((LANG==='ar'?'خطأ: ':'Error: ')+e.message, 'err');
+  }
+}
+window.cancelMove = cancelMove;
