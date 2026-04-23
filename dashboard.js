@@ -405,7 +405,8 @@ async function loadLastPayment() {
       if(lr && re && !re.value) re.value = lr;
       if(la && lr && window.autoFillRent) setTimeout(autoFillRent, 100);
     } catch(e) {}
-    var { data: last } = await sb.from('rent_payments').select('*').order('payment_date',{ascending:false}).limit(1);
+    var { data: last } = await activateReservedUnits();
+  await sb.from('rent_payments').select('*').order('payment_date',{ascending:false}).limit(1);
     if(!last||!last[0]) return;
     var p = last[0];
     _lastPaymentData = p;
@@ -668,8 +669,6 @@ window.loadHome = async function(btn, force) {
   var now = new Date();
   var ym  = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   loadSmartDash(ym);
-  // تفعيل الحجوزات والنقلات المجدولة تلقائياً عند كل فتح للرئيسية
-  activateReservedUnits();
   if(!window._appReadyFired){ window._appReadyFired=true; document.dispatchEvent(new Event('appReady')); }
 };
 
@@ -847,11 +846,12 @@ async function activateReservedUnits() {
       .eq('unit_status','reserved')
       .lte('start_date', today);
 
-    // تفعيل الوحدات المحجوزة التي حان تاريخها
-    if(toActivate && toActivate.length) {
-      for(var i=0; i<toActivate.length; i++) {
-        await sb.from('units').update({ unit_status: 'occupied' }).eq('id', toActivate[i].id);
-      }
+    if(!toActivate || !toActivate.length) return;
+
+    for(var i=0; i<toActivate.length; i++) {
+      await sb.from('units').update({ unit_status: 'occupied' }).eq('id', toActivate[i].id);
+    }
+    if(toActivate.length > 0) {
       toast('✅ تم تفعيل '+toActivate.length+' وحدة محجوزة', 'ok');
     }
 
@@ -864,29 +864,7 @@ async function activateReservedUnits() {
     if(pendingArrivals && pendingArrivals.length) {
       for(var j=0; j<pendingArrivals.length; j++) {
         var mv = pendingArrivals[j];
-        // Fallback: if unit_id null, find by apartment+room
-        if(!mv.unit_id) {
-          var { data: foundUnit } = await sb.from('units')
-            .select('id').eq('apartment', String(mv.apartment)).eq('room', String(mv.room)).maybeSingle();
-          if(foundUnit && foundUnit.id) {
-            mv.unit_id = foundUnit.id;
-            // Patch the move record too
-            await sb.from('moves').update({ unit_id: foundUnit.id }).eq('id', mv.id);
-          } else {
-            continue; // still can't find unit — skip
-          }
-        }
-        // حفظ التاريخ أولاً قبل التحديث — لو فشل skip هذا الـ move
-        try {
-          await window.archiveUnitToHistory(
-            parseInt(mv.unit_id),
-            mv.new_start_date || mv.move_date || new Date().toISOString().slice(0,10),
-            'departure'
-          );
-        } catch(archErr) {
-          console.error('archiveUnitToHistory failed for move', mv.id, archErr.message);
-          continue; // مش هنحدّث الوحدة لو ما اتحفظش التاريخ
-        }
+        if(!mv.unit_id) continue;
         // Update unit with new tenant
         await sb.from('units').update({
           tenant_name: mv.new_tenant_name || mv.tenant_name,
@@ -898,38 +876,14 @@ async function activateReservedUnits() {
           start_date: mv.new_start_date || mv.move_date,
           is_vacant: false,
           unit_status: 'occupied',
-          language: (function(){
-            var n = mv.notes || '';
-            if(n.indexOf('lang:AR')>-1) return 'AR';
-            if(n.indexOf('lang:EN')>-1) return 'EN';
-            return 'AR'; // default للحجوزات القديمة في دبي
-          })()
+          language: (mv.notes && mv.notes.indexOf('lang:AR')>-1) ? 'AR' : 'EN'
         }).eq('id', parseInt(mv.unit_id));
         // Mark move as done
         await sb.from('moves').update({ status: 'done' }).eq('id', mv.id);
-        // حذف عربون الحجز وتسجيل التأمين النهائي إن لم يكن موجوداً
+        // Delete duplicate deposit (عربون حجز) if confirmation deposit was added
         await sb.from('deposits').delete()
-          .eq('unit_id', parseInt(mv.unit_id)).like('notes','%عربون حجز%');
-        if(mv.new_deposit && mv.new_deposit > 0) {
-          var { data: depExists } = await sb.from('deposits')
-            .select('id').eq('unit_id', parseInt(mv.unit_id)).eq('status','held')
-            .eq('tenant_name', mv.new_tenant_name || mv.tenant_name).limit(1);
-          if(!depExists || !depExists.length) {
-            var { data: unitInfo2 } = await sb.from('units')
-              .select('apartment,room').eq('id', parseInt(mv.unit_id)).single();
-            if(unitInfo2) {
-              await sb.from('deposits').insert({
-                unit_id: parseInt(mv.unit_id),
-                apartment: String(unitInfo2.apartment), room: String(unitInfo2.room),
-                tenant_name: mv.new_tenant_name || mv.tenant_name,
-                amount: mv.new_deposit, status: 'held',
-                refund_amount: 0, deduction_amount: 0,
-                deposit_received_date: mv.new_start_date || mv.move_date || new Date().toISOString().slice(0,10),
-                notes: 'مسجّل عند تفعيل الحجز تلقائياً'
-              });
-            }
-          }
-        }
+          .eq('unit_id', parseInt(mv.unit_id))
+          .like('notes','%عربون حجز%');
       }
       toast('✅ تم تأكيد '+pendingArrivals.length+' حجز تلقائياً', 'ok');
     }
@@ -943,14 +897,6 @@ async function activateReservedUnits() {
         var tr = pendingTransfers[k];
         var f = tr.from_snapshot || {};
         var t = tr.to_snapshot || {};
-        // حفظ التاريخ للوحدتين أولاً
-        try {
-          await window.archiveUnitToHistory(tr.from_unit_id, tr.transfer_date, 'departure');
-          await window.archiveUnitToHistory(tr.to_unit_id, tr.transfer_date, 'departure');
-        } catch(archErr) {
-          console.error('archiveUnitToHistory failed for transfer', tr.id, archErr.message);
-          continue;
-        }
         // Update toUnit with fromUnit tenant
         await sb.from('units').update({
           tenant_name: f.tenant_name, tenant_name2: f.tenant_name2,
@@ -978,6 +924,68 @@ async function activateReservedUnits() {
         }).eq('id', tr.id);
       }
       toast('✅ تم تنفيذ '+pendingTransfers.length+' نقل داخلي تلقائياً', 'ok');
+    }
+
+
+    // ── Auto-execute مغادرات pending لو بدأ شهر جديد ──
+    // لو move_date في الشهر الماضي أو أقدم → ننفّذها تلقائياً
+    var now          = new Date();
+    var thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+
+    var { data: dueDepartures } = await sb.from('moves')
+      .select('*')
+      .eq('type','depart').eq('status','pending')
+      .lt('move_date', thisMonthStart);
+
+    if(dueDepartures && dueDepartures.length) {
+      for(var s=0; s<dueDepartures.length; s++) {
+        var sd = dueDepartures[s];
+        if(!sd.unit_id) {
+          await sb.from('moves').update({ status: 'done' }).eq('id', sd.id);
+          continue;
+        }
+        // جيب بيانات الوحدة
+        var { data: uu } = await sb.from('units')
+          .select('id,tenant_name,phone,monthly_rent,deposit,is_vacant')
+          .eq('id', sd.unit_id).maybeSingle();
+
+        if(!uu || uu.is_vacant) {
+          // الوحدة فاضية فعلاً — بس mark done
+          await sb.from('moves').update({ status: 'done' }).eq('id', sd.id);
+          continue;
+        }
+
+        // حفظ snapshot في unit_history قبل التفريغ
+        await sb.from('unit_history').insert({
+          unit_id:       sd.unit_id,
+          apartment:     String(sd.apartment),
+          room:          String(sd.room),
+          tenant_name:   uu.tenant_name || sd.tenant_name,
+          phone:         uu.phone || sd.phone || null,
+          monthly_rent:  uu.monthly_rent || 0,
+          deposit:       uu.deposit || 0,
+          start_date:    null,
+          end_date:      sd.move_date,
+          snapshot_type: 'departure',
+        });
+
+        // تفريغ الوحدة
+        await sb.from('units').update({
+          tenant_name: null, tenant_name2: null,
+          phone: null, phone2: null,
+          monthly_rent: 0, rent1: 0, rent2: 0, deposit: 0,
+          start_date: null,
+          is_vacant: true,
+          unit_status: 'available',
+          notes: 'غادر تلقائياً — ' + sd.move_date
+        }).eq('id', sd.unit_id);
+
+        // done
+        await sb.from('moves').update({ status: 'done' }).eq('id', sd.id);
+      }
+      if(dueDepartures.length > 0) {
+        toast('✅ تم تنفيذ ' + dueDepartures.length + ' مغادرة تلقائياً', 'ok');
+      }
     }
 
   } catch(e) { /* silent */ }

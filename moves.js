@@ -1,36 +1,4 @@
 
-// ══════════════════════════════════════════════════════
-// archiveUnitToHistory — يحفظ snapshot قبل أي تغيير
-// لو فشل الحفظ: throw error — مش تكمّل العملية
-// ══════════════════════════════════════════════════════
-async function archiveUnitToHistory(unitId, endDate, snapshotType) {
-  if(!unitId) return;
-  var { data: curr, error: fetchErr } = await sb.from('units')
-    .select('*').eq('id', unitId).maybeSingle();
-  if(fetchErr) throw new Error('archiveUnitToHistory fetch failed: ' + fetchErr.message);
-  if(!curr || curr.is_vacant || !curr.tenant_name) return; // فاضية — مفيش حاجة تتحفظ
-
-  var { error: histErr } = await sb.from('unit_history').insert({
-    unit_id:       unitId,
-    apartment:     String(curr.apartment),
-    room:          String(curr.room),
-    tenant_name:   curr.tenant_name,
-    tenant_name2:  curr.tenant_name2 || null,
-    phone:         curr.phone || null,
-    phone2:        curr.phone2 || null,
-    monthly_rent:  curr.monthly_rent || 0,
-    deposit:       curr.deposit || 0,
-    start_date:    curr.start_date || null,
-    end_date:      endDate || new Date().toISOString().slice(0,10),
-    snapshot_type: snapshotType || 'departure',
-    recorded_by:   (ME||{}).id || null,
-  });
-  if(histErr) throw new Error('archiveUnitToHistory insert failed: ' + histErr.message);
-  console.log('✅ unit_history saved:', curr.apartment + '/' + curr.room, '-', curr.tenant_name);
-}
-window.archiveUnitToHistory = archiveUnitToHistory;
-
-
 // ══ MOVES ══
 
 
@@ -408,10 +376,30 @@ async function saveArrivalEntry(btn){
     var isFutureBooking = date && new Date(date) > new Date();
     if(isFutureBooking) doUpdate = false; // Don't overwrite unit until move-in date
 
-    // 1. Archive old tenant data to unit_history — يحفظ أولاً قبل التحديث
+    // 1. Archive old tenant data to unit_history
     if(unitId && doUpdate) {
-      // لو فشل الحفظ → throw error ومش بيكمّل
-      await archiveUnitToHistory(unitId, date || new Date().toISOString().slice(0,10), 'departure');
+      var rUnit = await sb.from('units').select('*').eq('id',unitId).maybeSingle();
+      if(rUnit.data) {
+        var old = rUnit.data;
+        await sb.from('unit_history').insert({
+          unit_id: unitId,
+          apartment: old.apartment,
+          room: old.room,
+          tenant_name: old.tenant_name,
+          tenant_name2: old.tenant_name2,
+          phone: old.phone,
+          phone2: old.phone2,
+          monthly_rent: old.monthly_rent,
+          rent1: old.rent1,
+          rent2: old.rent2,
+          deposit: old.deposit,
+          persons_count: old.persons_count,
+          start_date: old.start_date,
+          end_date: date || new Date().toISOString().split('T')[0],
+          snapshot_type: 'departure',
+          recorded_by: (ME||{}).id || null
+        });
+      }
 
       // 2. Update unit with new tenant
       var updatePayload = {
@@ -419,7 +407,7 @@ async function saveArrivalEntry(btn){
         tenant_name2: null,
         phone: phone||null,
         phone2: null,
-        monthly_rent: rent||0,
+        monthly_rent: rent||old.monthly_rent,
         rent1: rent||0,
         rent2: 0,
         deposit: deposit||0,
@@ -442,6 +430,7 @@ async function saveArrivalEntry(btn){
       apartment: parseInt(apt),
       room: parseInt(room),
       move_date: date||null,
+      notes: notes||null,
       phone: phone||null,
       persons_count: persons,
       new_tenant_name: name,
@@ -560,8 +549,17 @@ function endOfCurrentMonthISO(){
 }
 async function hasDepartureForUnit(unitId){
   try {
-  if(!unitId) return false;
-    var r = await sb.from('moves').select('id').eq('type','depart').eq('unit_id', unitId).limit(1);
+    if(!unitId) return false;
+    // بنشوف بس المغادرات pending في الشهر الحالي والقادم بس
+    // عشان لو سجّل مغادرة شهر 3 وجاء شهر 4 يقدر يسجّل تاني
+    var now = new Date();
+    var thisMonthStart = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+    var nextMonthEnd = new Date(now.getFullYear(), now.getMonth()+2, 0).toISOString().slice(0,10);
+    var r = await sb.from('moves').select('id')
+      .eq('type','depart').eq('unit_id', unitId).eq('status','pending')
+      .gte('move_date', thisMonthStart)
+      .lte('move_date', nextMonthEnd)
+      .limit(1);
     if(r.error) throw r.error;
     return !!((r.data||[])[0]);
   } catch(e) { throw e; }
@@ -608,17 +606,7 @@ async function loadMovesList(type) {
   if(!listEl) return;
   listEl.innerHTML = '<div style="text-align:center;padding:20px"><span class="spin"></span></div>';
   try {
-    // نعرض pending للشهر الحالي والقادم فقط — القديمة محفوظة في DB للتقارير
-    var now = new Date();
-    var thisMonthStart = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-01';
-    var nextMonth = new Date(now.getFullYear(), now.getMonth()+2, 0); // آخر يوم في الشهر القادم
-    var nextMonthEnd = nextMonth.getFullYear() + '-' + String(nextMonth.getMonth()+1).padStart(2,'0') + '-' + String(nextMonth.getDate()).padStart(2,'0');
-
-    var result = await sb.from('moves').select('*')
-      .eq('type', type).eq('status','pending')
-      .gte('move_date', thisMonthStart)
-      .lte('move_date', nextMonthEnd)
-      .order('move_date', {ascending: true});
+    var result = await sb.from('moves').select('*').eq('type', type).order('created_at', {ascending: false});
     if(result.error) throw result.error;
     var data = result.data || [];
     // Fetch units for rent info
@@ -742,30 +730,6 @@ async function loadMovesList(type) {
         }).join('')
         + '</div>';
     }
-    // ── Arrive summary (NaN fix) ──
-    if(type==='arrive') {
-      var pendingCount = data.filter(function(m){ return m.status==='pending'; }).length;
-      var { data: vacantArr } = await sb.from('units').select('id').eq('is_vacant',true);
-      var vacantNow = (vacantArr||[]).length;
-      html += '<div style="background:var(--surf2);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">'
-        + '<div style="font-size:.85rem;font-weight:800;margin-bottom:10px">'+(LANG==='ar'?'الملخص الإجمالي':'Summary')+'</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
-        + '<div style="background:var(--green)15;border:1px solid var(--green)44;border-radius:10px;padding:10px;text-align:center">'
-        + '<div style="font-size:1.4rem;font-weight:800;color:var(--green)">'+pendingCount+'</div>'
-        + '<div style="font-size:.65rem;color:var(--muted);margin-top:2px">'+(LANG==='ar'?'محجوز':'Booked')+'</div>'
-        + '</div>'
-        + '<div style="background:var(--amber)15;border:1px solid var(--amber)44;border-radius:10px;padding:10px;text-align:center">'
-        + '<div style="font-size:1.4rem;font-weight:800;color:var(--amber)">'+vacantNow+'</div>'
-        + '<div style="font-size:.65rem;color:var(--muted);margin-top:2px">'+(LANG==='ar'?'شاغر حالياً':'Vacant Now')+'</div>'
-        + '</div>'
-        + '</div>'
-        + (vacantNow > 0
-          ? '<div style="padding:8px 12px;background:var(--red)15;border-radius:10px;text-align:center;margin-top:8px">'
-            + '<span style="font-size:.82rem;font-weight:700;color:var(--red)">'+(LANG==='ar'?'باقي '+vacantNow+' غرفة بدون حجز':vacantNow+' rooms without booking')+'</span></div>'
-          : '<div style="padding:8px 12px;background:var(--green)15;border-radius:10px;text-align:center;margin-top:8px">'
-            + '<span style="font-size:.82rem;font-weight:700;color:var(--green)">'+(LANG==='ar'?'كل الغرف محجوزة':'All rooms booked')+'</span></div>')
-        + '</div>';
-    }
     data.forEach(function(m) {
       var dateStr = m.move_date ? fmtDate(m.move_date, LANG) : '';
       var badge = type==='depart'
@@ -795,7 +759,6 @@ async function loadMovesList(type) {
         + statusBadge
         + (type==='arrive' && m.status==='pending' ? '<span style="background:var(--amber)22;color:var(--amber);border-radius:6px;padding:2px 8px;font-size:.65rem">⏳ '+(LANG==='ar'?'بانتظار التفعيل':'Pending')+'</span>' : '')
         + (type==='arrive' && m.status==='pending' && m.unit_id ? '<button onclick="confirmArrival(\'' + esc(m.id) + '\',\'' + esc(m.unit_id) + '\')" style="background:var(--green)22;border:1px solid var(--green);border-radius:8px;padding:5px 10px;font-size:.72rem;color:var(--green);cursor:pointer;font-family:inherit">✅ '+(LANG==='ar'?'تأكيد الانتقال':'Confirm Move')+'</button>' : '')
-        + (type==='depart' && m.status==='pending' ? '<button onclick="confirmDeparture(\'' + esc(m.id) + '\',\'' + esc(m.unit_id||'') + '\')" style="background:var(--amber)22;border:1px solid var(--amber);border-radius:8px;padding:5px 10px;font-size:.72rem;color:var(--amber);cursor:pointer;font-family:inherit">✅ '+(LANG==='ar'?'تأكيد المغادرة':'Confirm Departure')+'</button>' : '')
         + '<button onclick="deleteMoveEntry(\'' + esc(m.id) + '\',\'' + type + '\')" style="background:var(--red)22;border:1px solid var(--red);border-radius:8px;padding:4px 10px;color:var(--red);font-size:.72rem;cursor:pointer">🗑️</button>'
         + '</div></div></div>';
     });
@@ -1123,8 +1086,7 @@ function itSelectUnit(mode, id, label) {
 // ══ LOAD INTERNAL TRANSFERS FROM DB ══
 async function loadInternalTransfers() {
   var list = document.getElementById('internal-transfer-list');
-  if(!list) { 
-    // Try clicking the tab to activate it
+  if(!list) {
     var tab = document.getElementById('moves-tab-internal');
     if(tab) tab.click();
     setTimeout(loadInternalTransfers, 500);
@@ -1133,10 +1095,26 @@ async function loadInternalTransfers() {
   list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">⏳ جاري التحميل...</div>';
 
   try {
+    var now        = new Date();
+    var todayStr   = now.toISOString().slice(0,10);
+    var cutoffDate = new Date(now.getTime() - 10*24*60*60*1000).toISOString().slice(0,10);
+
+    // حذف تلقائي للنقلات المنفّذة اللي عدى عليها أكتر من 10 أيام
+    var oldRecs = await sb.from('internal_transfers')
+      .select('id')
+      .not('notes','like','%مجدوله%')
+      .lt('transfer_date', cutoffDate);
+    if(oldRecs.data && oldRecs.data.length) {
+      var oldIds = oldRecs.data.map(function(r){ return r.id; });
+      await sb.from('internal_transfers').delete().in('id', oldIds);
+    }
+
+    // جيب بس النقلات في آخر 10 أيام + المجدولة
     var { data: records } = await sb.from('internal_transfers')
       .select('*')
+      .or('notes.like.%مجدوله%,transfer_date.gte.'+cutoffDate)
       .order('created_at', {ascending:false})
-      .limit(20);
+      .limit(50);
 
     if(!records || !records.length) {
       list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:.82rem">لا توجد نقليات داخلية مسجّلة</div>';
@@ -1147,19 +1125,28 @@ async function loadInternalTransfers() {
     records.forEach(function(rec) {
       var f = rec.from_snapshot || {};
       var t = rec.to_snapshot || {};
-      var item = document.createElement('div');
-      item.style.cssText = 'background:var(--surf2);border-radius:12px;padding:12px;margin-bottom:8px;border-right:4px solid var(--green)';
-      item.dataset.transferId = rec.id;
 
-      // Check if this is a pending/scheduled transfer
       var isPending = rec.notes && rec.notes.indexOf('مجدوله') > -1;
+
+      // حساب الأيام المتبقية للتراجع
+      var transferDate = rec.transfer_date ? new Date(rec.transfer_date) : new Date(rec.created_at);
+      var deadlineDate = new Date(transferDate.getTime() + 10*24*60*60*1000);
+      var daysLeft     = Math.ceil((deadlineDate - now) / (24*60*60*1000));
+      var daysLeftText = daysLeft > 0
+        ? (LANG==='ar' ? 'متبقي '+daysLeft+' يوم للتراجع' : daysLeft+' days left to undo')
+        : '';
+      var urgentColor  = daysLeft <= 2 ? 'var(--red)' : daysLeft <= 5 ? 'var(--amber)' : 'var(--muted)';
+      var borderColor  = isPending ? 'var(--blue,#3b82f6)' : daysLeft <= 2 ? 'var(--red)' : 'var(--green)';
+
+      var item = document.createElement('div');
+      item.style.cssText = 'background:var(--surf2);border-radius:12px;padding:12px;margin-bottom:8px;border-right:4px solid '+borderColor;
+      item.dataset.transferId = rec.id;
 
       var undoBtn = document.createElement('button');
       undoBtn.textContent = isPending ? '🗑️ إلغاء' : '↩️ تراجع';
       undoBtn.style.cssText = 'padding:6px 10px;background:var(--amber)22;border:1px solid var(--amber);border-radius:8px;color:var(--amber);font-size:.72rem;cursor:pointer;font-family:inherit;flex-shrink:0';
       undoBtn.addEventListener('click', function(){ undoInternalTransfer(undoBtn); });
 
-      // Confirm button for scheduled transfers
       if(isPending) {
         var confirmBtn = document.createElement('button');
         confirmBtn.textContent = '✅ تنفيذ النقل الآن';
@@ -1170,21 +1157,25 @@ async function loadInternalTransfers() {
 
       var info = document.createElement('div');
       info.innerHTML = '<div style="font-weight:700">🔄 '+(f.tenant_name||'—')+'</div>'
-        + '<div style="font-size:.75rem;color:var(--muted)">شقة '+f.apartment+' غرفة '+f.room
+        + '<div style="font-size:.75rem;color:var(--muted)">شقة '+f.apartment+' غرفة '+f.row
         + ' ← شقة '+t.apartment+' غرفة '+t.room+'</div>'
-        + '<div style="font-size:.7rem;color:var(--muted)">📅 '+(rec.transfer_date||rec.created_at||'').slice(0,10)+'</div>';
+        + '<div style="font-size:.7rem;color:var(--muted)">📅 '+(rec.transfer_date||rec.created_at||'').slice(0,10)+'</div>'
+        + (!isPending && daysLeftText ? '<div style="font-size:.68rem;color:'+urgentColor+';font-weight:700;margin-top:3px">⏳ '+daysLeftText+'</div>' : '');
 
       var row = document.createElement('div');
       row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px';
       row.appendChild(info);
       row.appendChild(undoBtn);
       item.appendChild(row);
-      // Also add undo button below for mobile visibility
-      var undoBtn2 = document.createElement('button');
-      undoBtn2.textContent = '↩️ تراجع عن النقل';
-      undoBtn2.style.cssText = 'margin-top:8px;width:100%;padding:9px;background:var(--amber)22;border:1px solid var(--amber);border-radius:10px;color:var(--amber);font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit';
-      undoBtn2.addEventListener('click', function(){ undoInternalTransfer(undoBtn2); });
-      item.appendChild(undoBtn2);
+
+      if(!isPending) {
+        var undoBtn2 = document.createElement('button');
+        undoBtn2.textContent = '↩️ تراجع عن النقل';
+        undoBtn2.style.cssText = 'margin-top:8px;width:100%;padding:9px;background:var(--amber)22;border:1px solid var(--amber);border-radius:10px;color:var(--amber);font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit';
+        undoBtn2.addEventListener('click', function(){ undoInternalTransfer(undoBtn2); });
+        item.appendChild(undoBtn2);
+      }
+
       list.appendChild(item);
     });
   } catch(e) {
@@ -1472,7 +1463,7 @@ async function executeInternalTransfer() {
       start_date: null,
       is_vacant: true,
       unit_status: 'available',
-      notes: 'أُفرغت بنقل داخلي — '+date
+      notes: 'انتقل من شقة '+fromUnit.apartment+' غرفة '+fromUnit.room+' إلى شقة '+toUnit.apartment+' غرفة '+toUnit.room+' — '+date
     }).eq('id', fromId);
     if(e4) throw e4;
 
@@ -1538,10 +1529,6 @@ async function undoInternalTransfer(btn) {
     var f = data.fromSnapshot;
     var t = data.toSnapshot;
 
-    // حفظ الحالة الحالية قبل التراجع
-    await archiveUnitToHistory(data.fromId, new Date().toISOString().slice(0,10), 'manual');
-    await archiveUnitToHistory(data.toId, new Date().toISOString().slice(0,10), 'manual');
-
     // Restore source unit (fromUnit) with original data
     await sb.from('units').update({
       tenant_name: f.tenant_name,
@@ -1603,45 +1590,6 @@ window.undoInternalTransfer = undoInternalTransfer;
 window.loadInternalTransfers = loadInternalTransfers;
 
 
-
-// ══ CONFIRM DEPARTURE ══
-async function confirmDeparture(moveId, unitId) {
-  if(!confirm(LANG==='ar'?'تأكيد مغادرة المستأجر وإفراغ الوحدة؟':'Confirm departure and vacate unit?')) return;
-  try {
-    var { data: move } = await sb.from('moves').select('*').eq('id', moveId).maybeSingle();
-    if(!move) { toast('Move not found','err'); return; }
-
-    var uid = unitId || move.unit_id;
-    // Fallback: find unit by apt+room
-    if(!uid) {
-      var { data: fu } = await sb.from('units').select('id')
-        .eq('apartment', String(move.apartment)).eq('room', String(move.room)).maybeSingle();
-      if(fu) uid = fu.id;
-    }
-
-    if(uid) {
-      // حفظ التاريخ أولاً — لو فشل يوقف
-      await archiveUnitToHistory(uid, move.move_date || new Date().toISOString().slice(0,10), 'departure');
-      // إفراغ الوحدة
-      await sb.from('units').update({
-        tenant_name: null, tenant_name2: null, phone: null, phone2: null,
-        monthly_rent: 0, rent1: 0, rent2: 0, deposit: 0,
-        persons_count: 1, start_date: null,
-        is_vacant: true, unit_status: 'available'
-      }).eq('id', uid);
-    }
-
-    await sb.from('moves').update({ status: 'done' }).eq('id', moveId);
-    toast(LANG==='ar'?'✅ تم تأكيد المغادرة':'✅ Departure confirmed','ok');
-    loadMovesList('depart');
-    if(window.loadHome) loadHome(null, false);
-  } catch(e) {
-    toast('خطأ: '+e.message,'err');
-    console.error('confirmDeparture:', e);
-  }
-}
-window.confirmDeparture = confirmDeparture;
-
 async function confirmArrival(moveId, unitId) {
   if(!confirm(LANG==='ar'?'هل تريد تأكيد انتقال المستأجر وتحديث بيانات الوحدة؟':'Confirm tenant move-in?')) return;
   try {
@@ -1649,12 +1597,20 @@ async function confirmArrival(moveId, unitId) {
     if(!move) { toast('Move not found','err'); return; }
     var { data: unit } = await sb.from('units').select('*').eq('id', parseInt(unitId)).single();
 
-    // Archive old tenant — يحفظ أولاً، لو فشل throw error
-    await archiveUnitToHistory(
-      parseInt(unitId),
-      move.move_date || new Date().toISOString().slice(0,10),
-      'departure'
-    );
+    // Archive old tenant
+    if(unit && unit.tenant_name) {
+      await sb.from('unit_history').insert({
+        unit_id: parseInt(unitId),
+        apartment: unit.apartment, room: unit.room,
+        tenant_name: unit.tenant_name, tenant_name2: unit.tenant_name2,
+        phone: unit.phone, phone2: unit.phone2,
+        monthly_rent: unit.monthly_rent, rent1: unit.rent1, rent2: unit.rent2,
+        deposit: unit.deposit, persons_count: unit.persons_count,
+        start_date: unit.start_date,
+        end_date: move.move_date || new Date().toISOString().slice(0,10),
+        snapshot_type: 'departure', recorded_by: ME ? ME.id : null
+      });
+    }
 
     // Update unit with new tenant
     await sb.from('units').update({
@@ -1666,34 +1622,23 @@ async function confirmArrival(moveId, unitId) {
       persons_count: move.new_persons || move.persons_count || 1,
       start_date: move.new_start_date || move.move_date,
       is_vacant: false, unit_status: 'occupied',
-      language: (function(){
-        var n = move.notes || '';
-        if(n.indexOf('lang:AR')>-1) return 'AR';
-        if(n.indexOf('lang:EN')>-1) return 'EN';
-        // fallback: حجوزات قديمة — خذ اللغة من الوحدة الحالية
-        return (unit && unit.language) ? unit.language : 'AR';
-      })(),
+      language: (move.notes && move.notes.indexOf('lang:AR')>-1) ? 'AR' : 'EN',
       tenant_name2: null, phone2: null
     }).eq('id', parseInt(unitId));
 
-    // Register deposit — delete عربون first, guard duplicate
+    // Register deposit — delete عربون first to avoid duplicates
     if(move.new_deposit && move.new_deposit > 0 && unit) {
       await sb.from('deposits').delete()
         .eq('unit_id', parseInt(unitId)).like('notes','%عربون حجز%');
-      var { data: existingDep } = await sb.from('deposits')
-        .select('id').eq('unit_id', parseInt(unitId)).eq('status','held')
-        .eq('tenant_name', move.new_tenant_name || move.tenant_name).limit(1);
-      if(!existingDep || !existingDep.length) {
-        await sb.from('deposits').insert({
-          unit_id: parseInt(unitId),
-          apartment: String(unit.apartment), room: String(unit.room),
-          tenant_name: move.new_tenant_name || move.tenant_name,
-          amount: move.new_deposit, status: 'held',
-          refund_amount: 0, deduction_amount: 0,
-          deposit_received_date: move.new_start_date || move.move_date || new Date().toISOString().slice(0,10),
-          notes: 'مسجّل عند تأكيد الانتقال'
-        });
-      }
+      await sb.from('deposits').insert({
+        unit_id: parseInt(unitId),
+        apartment: String(unit.apartment), room: String(unit.room),
+        tenant_name: move.new_tenant_name || move.tenant_name,
+        amount: move.new_deposit, status: 'held',
+        refund_amount: 0, deduction_amount: 0,
+        deposit_received_date: move.new_start_date || move.move_date || new Date().toISOString().slice(0,10),
+        notes: 'مسجّل عند تأكيد الانتقال'
+      });
     }
 
     // Mark move done
@@ -1714,9 +1659,31 @@ async function confirmScheduledTransfer(transferId, fromSnapshot, toSnapshot, fr
     var t = toSnapshot;
     var date = new Date().toISOString().slice(0,10);
 
-    // Archive الوحدتين أولاً — لو فشل throw error ومش بيكمّل
-    await archiveUnitToHistory(fromId, date, 'departure');
-    await archiveUnitToHistory(toId, date, 'departure');
+    // Archive fromUnit to unit_history
+    await sb.from('unit_history').insert({
+      unit_id: fromId, apartment: parseInt(f.apartment)||0, room: parseInt(f.room)||0,
+      tenant_name: f.tenant_name, tenant_name2: f.tenant_name2,
+      phone: f.phone, phone2: f.phone2,
+      monthly_rent: f.monthly_rent, rent1: f.rent1, rent2: f.rent2,
+      deposit: f.deposit, persons_count: f.persons_count,
+      start_date: f.start_date, end_date: date,
+      notes: 'نقل داخلي إلى شقة '+t.apartment+' غرفة '+t.room,
+      snapshot_type: 'internal_transfer_out', recorded_by: ME ? ME.id : null
+    });
+
+    // Archive toUnit to unit_history
+    if(t.tenant_name) {
+      await sb.from('unit_history').insert({
+        unit_id: toId, apartment: parseInt(t.apartment)||0, room: parseInt(t.room)||0,
+        tenant_name: t.tenant_name, tenant_name2: t.tenant_name2,
+        phone: t.phone, phone2: t.phone2,
+        monthly_rent: t.monthly_rent, rent1: t.rent1, rent2: t.rent2,
+        deposit: t.deposit, persons_count: t.persons_count,
+        start_date: t.start_date, end_date: date,
+        notes: 'تم استبداله بنقل داخلي من شقة '+f.apartment+' غرفة '+f.room,
+        snapshot_type: 'internal_transfer_displaced', recorded_by: ME ? ME.id : null
+      });
+    }
 
     // Update toUnit with fromUnit tenant
     await sb.from('units').update({
@@ -1733,7 +1700,7 @@ async function confirmScheduledTransfer(transferId, fromSnapshot, toSnapshot, fr
       tenant_name: null, tenant_name2: null, phone: null, phone2: null,
       monthly_rent: 0, rent1: 0, rent2: 0, deposit: 0,
       start_date: null, is_vacant: true, unit_status: 'available',
-      notes: 'أُفرغت بنقل داخلي — '+date
+      notes: 'انتقل من شقة '+f.apartment+' غرفة '+f.room+' إلى شقة '+t.apartment+' غرفة '+t.room+' — '+date
     }).eq('id', fromId);
 
     // Transfer deposit

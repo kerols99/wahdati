@@ -211,6 +211,16 @@ async function openUnitTimeline(unitId, aptLabel) {
     hist.forEach(function(h){ html+=_timelineEntry({name:h.tenant_name+(h.tenant_name2?' & '+h.tenant_name2:''),phone:h.phone,start:h.start_date,end:h.end_date,rent:h.monthly_rent,deposit:h.deposit,isCurrent:false}); });
     if(!unit.tenant_name&&hist.length===0) html+='<div style="text-align:center;padding:16px;color:var(--muted);font-size:.8rem">لا يوجد سجل بعد</div>';
 
+    // زرار استرجاع آخر مستأجر — يظهر بس لو الوحدة فاضية وعندها تاريخ
+    if(unit.is_vacant && hist.length > 0) {
+      var lastH = hist[0];
+      html += '<button onclick="restoreLastTenant(\'' + unitId + '\')" '
+        + 'style="width:100%;margin-top:14px;padding:13px;background:var(--accent)22;border:2px solid var(--accent)55;'
+        + 'border-radius:12px;color:var(--accent);font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer">'
+        + '↩️ ' + (LANG==='ar' ? 'استرجاع ' + (lastH.tenant_name||'آخر مستأجر') : 'Restore ' + (lastH.tenant_name||'Last Tenant'))
+        + '</button>';
+    }
+
     // Payment summary
     if(pays.length>0){
       var bm={};
@@ -267,3 +277,63 @@ async function loadUnitPerformance() {
 window.openTenantProfile   = openTenantProfile;
 window.openUnitTimeline    = openUnitTimeline;
 window.loadUnitPerformance = loadUnitPerformance;
+
+// ══════════════════════════════════════════
+// restoreLastTenant — استرجاع آخر مستأجر
+// ══════════════════════════════════════════
+async function restoreLastTenant(unitId) {
+  if(!confirm(LANG==='ar' ? 'هل تريد استرجاع آخر مستأجر لهذه الوحدة؟' : 'Restore last tenant to this unit?')) return;
+  try {
+    // جيب آخر سجل في unit_history
+    var { data: hist } = await sb.from('unit_history')
+      .select('*').eq('unit_id', unitId)
+      .order('end_date', {ascending: false})
+      .limit(1);
+
+    if(!hist || !hist.length) {
+      toast(LANG==='ar' ? 'لا يوجد مستأجر سابق' : 'No previous tenant found', 'err');
+      return;
+    }
+    var h = hist[0];
+
+    // إلغاء المغادرة الـ pending لو موجودة
+    await sb.from('moves')
+      .update({ status: 'cancelled' })
+      .eq('unit_id', unitId)
+      .eq('type', 'depart')
+      .eq('status', 'pending');
+
+    // إرجاع بيانات المستأجر للوحدة
+    var { error } = await sb.from('units').update({
+      tenant_name:   h.tenant_name   || null,
+      tenant_name2:  h.tenant_name2  || null,
+      phone:         h.phone         || null,
+      phone2:        h.phone2        || null,
+      monthly_rent:  h.monthly_rent  || 0,
+      deposit:       h.deposit       || 0,
+      start_date:    h.start_date    || null,
+      is_vacant:     false,
+      unit_status:   'occupied',
+      notes:         'تم استرجاع المستأجر — ' + new Date().toISOString().slice(0,10)
+    }).eq('id', unitId);
+
+    if(error) throw error;
+
+    // حذف سجل الـ history اللي رجّعناه عشان ما يتكررش
+    await sb.from('unit_history').delete().eq('id', h.id);
+
+    toast(LANG==='ar' ? '✅ تم استرجاع ' + (h.tenant_name||'المستأجر') : '✅ Tenant restored', 'ok');
+
+    // إغلاق الـ modal وتحديث الشاشة
+    var m = document.getElementById('unit-timeline-modal');
+    if(m) m.remove();
+    var tp = document.getElementById('tenant-profile-modal');
+    if(tp) tp.remove();
+    if(window.loadHome) loadHome(null, true);
+
+  } catch(e) {
+    toast((LANG==='ar'?'خطأ: ':'Error: ') + e.message, 'err');
+    console.error('restoreLastTenant:', e);
+  }
+}
+window.restoreLastTenant = restoreLastTenant;
