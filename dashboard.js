@@ -868,55 +868,29 @@ async function activateReservedUnits() {
       .lte('move_date', today2);  // كل المغادرات اللي وصل أو فات تاريخها
 
     if(dueDepartures && dueDepartures.length) {
+      var doneCount = 0;
       for(var s=0; s<dueDepartures.length; s++) {
         var sd = dueDepartures[s];
         if(!sd.unit_id) {
           await sb.from('moves').update({ status: 'done' }).eq('id', sd.id);
+          doneCount++;
           continue;
         }
-        // جيب بيانات الوحدة
-        var { data: uu } = await sb.from('units')
-          .select('id,tenant_name,phone,monthly_rent,deposit,is_vacant,start_date')
-          .eq('id', sd.unit_id).maybeSingle();
-
-        if(!uu || uu.is_vacant) {
-          // الوحدة فاضية فعلاً — mark done بس
-          await sb.from('moves').update({ status: 'done' }).eq('id', sd.id);
-          continue;
-        }
-
-        var unitStartDate = uu.start_date ? uu.start_date.slice(0,10) : '';
-
-        // حفظ snapshot في unit_history قبل التفريغ
-        await sb.from('unit_history').insert({
-          unit_id:       sd.unit_id,
-          apartment:     String(sd.apartment),
-          room:          String(sd.room),
-          tenant_name:   uu.tenant_name || sd.tenant_name,
-          phone:         uu.phone || sd.phone || null,
-          monthly_rent:  uu.monthly_rent || 0,
-          deposit:       uu.deposit || 0,
-          start_date:    unitStartDate || null,
-          end_date:      sd.move_date,
-          snapshot_type: 'departure',
+        // استخدام Database Function — transaction كاملة
+        // لو history insert فشل → مش هيتفرّغ الوحدة (rollback تلقائي)
+        var { data: result } = await sb.rpc('execute_departure', {
+          p_move_id:   sd.id,
+          p_unit_id:   sd.unit_id,
+          p_move_date: sd.move_date
         });
-
-        // تفريغ الوحدة
-        await sb.from('units').update({
-          tenant_name: null, tenant_name2: null,
-          phone: null, phone2: null,
-          monthly_rent: 0, rent1: 0, rent2: 0, deposit: 0,
-          start_date: null,
-          is_vacant: true,
-          unit_status: 'available',
-          notes: 'غادر تلقائياً — ' + sd.move_date
-        }).eq('id', sd.unit_id);
-
-        // done
-        await sb.from('moves').update({ status: 'done' }).eq('id', sd.id);
+        if(result && result.success) {
+          doneCount++;
+        } else {
+          console.warn('execute_departure failed:', sd.apartment, sd.room, result && result.error);
+        }
       }
-      if(dueDepartures.length > 0) {
-        toast('✅ تم تنفيذ ' + dueDepartures.length + ' مغادرة تلقائياً', 'ok');
+      if(doneCount > 0) {
+        toast('✅ تم تنفيذ ' + doneCount + ' مغادرة تلقائياً', 'ok');
       }
     }
     // Auto-confirm pending bookings (arrive) whose date has arrived
