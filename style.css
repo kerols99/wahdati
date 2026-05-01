@@ -164,6 +164,49 @@ html, body {
 .topbar-l { display: flex; align-items: center; gap: 10px; }
 .topbar-r { display: flex; align-items: center; gap: 4px; }
 
+#month-selector-bar{
+  position: fixed;
+  top: calc(60px + var(--safe-top));
+  left: 0;
+  right: 0;
+  z-index: 180;
+
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:8px 14px;
+
+  height:50px;
+
+  background: rgba(13,17,23,.92);
+  border-bottom:1px solid var(--border);
+
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  will-change: backdrop-filter;
+}
+
+[data-theme="light"] #month-selector-bar{
+  background: rgba(255,255,255,.92);
+}
+
+.content{
+  padding-top: calc(110px + var(--safe-top));
+}
+
+#month-selector-bar button{
+  font-family: var(--font);
+  transition: opacity .2s;
+}
+
+#month-selector-bar button:active{
+  transform: scale(.95);
+}
+
+body.historical-mode #month-selector-bar{
+  background: var(--amber)08;
+}
+
 .logo-ic { width: 34px; height: 34px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
 
 .logo-tx {
@@ -822,18 +865,3 @@ html, body { transition: background .2s ease; }
   }
 }
 
-/* Month Selector Bar */
-#month-selector-bar {
-  transition: border-color .3s;
-}
-#month-selector-bar button {
-  font-family: var(--font);
-  transition: opacity .2s;
-}
-#month-selector-bar button:active {
-  transform: scale(.95);
-}
-/* Historical mode — amber tint on topbar */
-body.historical-mode #month-selector-bar {
-  background: var(--amber)08;
-}
