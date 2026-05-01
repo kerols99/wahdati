@@ -167,8 +167,6 @@ html, body {
 #month-selector-bar{
   position: fixed;
   top: calc(60px + var(--safe-top));
-  left: 0;
-  right: 0;
   z-index: 180;
 
   display:flex;
