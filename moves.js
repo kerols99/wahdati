@@ -128,11 +128,9 @@ async function addDepartureModal(){
   document.body.appendChild(overlay);
   overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
 
-  // Set default date to last day of current month
-  var now = new Date();
-  var lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  // Set default date — أول الشهر الجاي (موحّد مع endOfCurrentMonthISO)
   var dateEl = document.getElementById('me-date');
-  if(dateEl) dateEl.value = lastDay.toISOString().split('T')[0];
+  if(dateEl) dateEl.value = endOfCurrentMonthISO();
 
   // Render unit cards
   renderUnitCards(units, '');
@@ -432,12 +430,10 @@ async function saveArrivalEntry(btn){
       type: 'arrive',
       unit_id: unitId||null,
       arrival_unit_id: unitId||null,
-      linked_depart_id: null, // departId is UUID but column is integer — skip
       tenant_name: name,
       apartment: String(apt),
       room: String(room),
       move_date: date||null,
-      notes: notes||null,
       phone: phone||null,
       persons_count: persons,
       new_tenant_name: name,
@@ -446,6 +442,7 @@ async function saveArrivalEntry(btn){
       new_deposit: deposit||null,
       new_persons: persons,
       new_start_date: date||null,
+      language: lang||'EN',
       notes: (notes||'') + (lang && lang!=='EN' ? ' | lang:'+lang : ''),
       status: doUpdate ? 'done' : 'pending',
       created_by: (ME||{}).id||null
@@ -456,11 +453,11 @@ async function saveArrivalEntry(btn){
     // Register deposit immediately if provided
     if(deposit && deposit > 0 && unitId) {
       var depDate = date || new Date().toISOString().slice(0,10);
-      var { data: unitInfo } = await sb.from('units').select('apartment,room').eq('id', parseInt(unitId)).single();
+      var { data: unitInfo } = await sb.from('units').select('apartment,room').eq('id', unitId).maybeSingle();
       var depApt = unitInfo ? String(unitInfo.apartment) : String(apt);
       var depRoom = unitInfo ? String(unitInfo.room) : String(room);
       await sb.from('deposits').insert({
-        unit_id: parseInt(unitId),
+        unit_id: unitId,
         apartment: depApt,
         room: depRoom,
         tenant_name: name,
@@ -528,7 +525,7 @@ async function saveMoveEntry(type, btn){
     if(ins.error) throw ins.error;
     // Update unit_status to leaving_soon
     if(unitId) {
-      await sb.from('units').update({ unit_status: 'leaving_soon' }).eq('id', parseInt(unitId));
+      await sb.from('units').update({ unit_status: 'leaving_soon' }).eq('id', unitId);
     } else {
       await sb.from('units').update({ unit_status: 'leaving_soon' })
         .eq('apartment', String(apt)).eq('room', String(room));
@@ -542,7 +539,6 @@ async function saveMoveEntry(type, btn){
 }
 
 
-function esc(v){ return window.escapeHtml ? escapeHtml(v==null?'':String(v)) : String(v==null?'':v); }
 function fmtDate(date, lang){
   if(!date) return '';
   try { return new Date(date).toLocaleDateString(lang==='ar'?'ar-EG':'en-GB',{day:'numeric',month:'short',year:'numeric'}); }
@@ -551,7 +547,7 @@ function fmtDate(date, lang){
 
 
 function endOfCurrentMonthISO(){
-  // بيرجع أول يوم في الشهر الجاي (1 مايو مش 30 أبريل)
+  // دايماً أول الشهر الجاي الفعلي — النقل والحجز بالتاريخ الحقيقي
   var d = new Date();
   return new Date(d.getFullYear(), d.getMonth()+1, 1).toISOString().split('T')[0];
 }
@@ -1062,7 +1058,7 @@ async function openInternalTransferModal() {
   overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
   document.body.appendChild(overlay);
 
-  // Set today's date
+  // Set today's date — تاريخ النقل الفعلي دايماً
   var dateEl = document.getElementById('it-date');
   if(dateEl) dateEl.value = new Date().toISOString().slice(0,10);
 
@@ -1223,7 +1219,7 @@ async function loadInternalTransfers() {
 
       var info = document.createElement('div');
       info.innerHTML = '<div style="font-weight:700">🔄 '+(f.tenant_name||'—')+'</div>'
-        + '<div style="font-size:.75rem;color:var(--muted)">شقة '+f.apartment+' غرفة '+f.row
+        + '<div style="font-size:.75rem;color:var(--muted)">شقة '+f.apartment+' غرفة '+f.room
         + ' ← شقة '+t.apartment+' غرفة '+t.room+'</div>'
         + '<div style="font-size:.7rem;color:var(--muted)">📅 '+(rec.transfer_date||rec.created_at||'').slice(0,10)+'</div>'
         + (!isPending && daysLeftText ? '<div style="font-size:.68rem;color:'+urgentColor+';font-weight:700;margin-top:3px">⏳ '+daysLeftText+'</div>' : '');
@@ -1415,8 +1411,9 @@ async function executeInternalTransfer() {
   if(btn) { btn.disabled=true; btn.textContent='⏳ جاري النقل...'; }
 
   // Ensure IDs are integers
-  fromId = parseInt(fromId);
-  toId   = parseInt(toId);
+  // fromId و toId هم UUIDs — مش parseInt
+  fromId = String(fromId);
+  toId   = String(toId);
 
   try {
     var { data: fromUnit, error: e1 } = await sb.from('units').select('*').eq('id', fromId).single();
@@ -1431,8 +1428,8 @@ async function executeInternalTransfer() {
       var fSnap = JSON.parse(JSON.stringify(fromUnit));
       var tSnap = JSON.parse(JSON.stringify(toUnit));
       var { data: insData, error: insErr } = await sb.from('internal_transfers').insert({
-        from_unit_id: parseInt(fromId),
-        to_unit_id: parseInt(toId),
+        from_unit_id: fromId,
+        to_unit_id: toId,
         from_snapshot: fSnap,
         to_snapshot: tSnap,
         transfer_date: date,
@@ -1634,8 +1631,8 @@ async function undoInternalTransfer(btn) {
     // Move deposit back to source unit
     await sb.from('deposits').update({
       unit_id: data.fromId,
-      apartment: String(data.fromApt),
-      room: String(data.fromRoom)
+      apartment: String(f.apartment||''),
+      room: String(f.room||'')
     }).eq('unit_id', data.toId).eq('status','held');
 
     // Delete the transfer record
@@ -1661,58 +1658,85 @@ async function confirmArrival(moveId, unitId) {
   try {
     var { data: move } = await sb.from('moves').select('*').eq('id', moveId).single();
     if(!move) { toast('Move not found','err'); return; }
-    var { data: unit } = await sb.from('units').select('*').eq('id', parseInt(unitId)).single();
 
-    // Archive old tenant
+    // unit_id هو UUID — مش parseInt
+    var { data: unit } = await sb.from('units').select('*').eq('id', unitId).maybeSingle();
+
+    // Archive old tenant لو موجود
     if(unit && unit.tenant_name) {
       await sb.from('unit_history').insert({
-        unit_id: parseInt(unitId),
-        apartment: unit.apartment, room: unit.room,
-        tenant_name: unit.tenant_name, tenant_name2: unit.tenant_name2,
-        phone: unit.phone, phone2: unit.phone2,
-        monthly_rent: unit.monthly_rent, rent1: unit.rent1, rent2: unit.rent2,
-        deposit: unit.deposit, persons_count: unit.persons_count,
-        start_date: unit.start_date,
-        end_date: move.move_date || new Date().toISOString().slice(0,10),
-        snapshot_type: 'departure', recorded_by: ME ? ME.id : null
+        unit_id:      unitId,
+        apartment:    String(unit.apartment),
+        room:         String(unit.room),
+        tenant_name:  unit.tenant_name,
+        tenant_name2: unit.tenant_name2 || null,
+        phone:        unit.phone || null,
+        phone2:       unit.phone2 || null,
+        monthly_rent: parseFloat(unit.monthly_rent||0),
+        deposit:      parseFloat(unit.deposit||0),
+        start_date:   unit.start_date || null,
+        end_date:     move.move_date || new Date().toISOString().slice(0,10),
+        snapshot_type: 'departure',
+        recorded_by:  ME ? ME.id : null
       });
     }
 
-    // Update unit with new tenant
-    await sb.from('units').update({
-      tenant_name: move.new_tenant_name || move.tenant_name,
-      phone: move.new_phone || move.phone,
-      monthly_rent: move.new_rent || (unit ? unit.monthly_rent : 0),
-      rent1: move.new_rent || (unit ? unit.rent1 : 0), rent2: 0,
-      deposit: move.new_deposit || 0,
-      persons_count: move.new_persons || move.persons_count || 1,
-      start_date: move.new_start_date || move.move_date,
-      is_vacant: false, unit_status: 'occupied',
-      language: (move.notes && move.notes.indexOf('lang:AR')>-1) ? 'AR' : 'EN',
-      tenant_name2: null, phone2: null
-    }).eq('id', parseInt(unitId));
+    // تحديد اللغة من الـ notes
+    var lang = 'AR';
+    if(move.notes && move.notes.indexOf('lang:EN') > -1) lang = 'EN';
+    else if(move.language) lang = move.language;
 
-    // Register deposit — delete عربون first to avoid duplicates
-    if(move.new_deposit && move.new_deposit > 0 && unit) {
+    // تحديث بيانات الوحدة بالمستأجر الجديد
+    var updateData = {
+      tenant_name:   move.new_tenant_name || move.tenant_name || null,
+      tenant_name2:  null,
+      phone:         move.new_phone || move.phone || null,
+      phone2:        null,
+      monthly_rent:  parseFloat(move.new_rent||0) || parseFloat(unit ? unit.monthly_rent : 0),
+      rent1:         parseFloat(move.new_rent||0) || parseFloat(unit ? unit.rent1 : 0),
+      rent2:         0,
+      deposit:       parseFloat(move.new_deposit||0),
+      persons_count: parseInt(move.new_persons||move.persons_count||1),
+      start_date:    move.new_start_date || move.move_date || null,
+      is_vacant:     false,
+      unit_status:   'occupied',
+      language:      lang
+    };
+
+    var { error: uErr } = await sb.from('units').update(updateData).eq('id', unitId);
+    if(uErr) throw uErr;
+
+    // تسجيل التأمين لو موجود
+    if(move.new_deposit && parseFloat(move.new_deposit) > 0) {
+      // حذف عربون الحجز القديم
       await sb.from('deposits').delete()
-        .eq('unit_id', parseInt(unitId)).like('notes','%عربون حجز%');
+        .eq('unit_id', unitId).like('notes','%عربون%');
+
       await sb.from('deposits').insert({
-        unit_id: parseInt(unitId),
-        apartment: String(unit.apartment), room: String(unit.room),
-        tenant_name: move.new_tenant_name || move.tenant_name,
-        amount: move.new_deposit, status: 'held',
-        refund_amount: 0, deduction_amount: 0,
+        unit_id:               unitId,
+        apartment:             String(unit ? unit.apartment : move.apartment),
+        room:                  String(unit ? unit.room : move.room),
+        tenant_name:           move.new_tenant_name || move.tenant_name || null,
+        amount:                parseFloat(move.new_deposit),
+        status:                'held',
+        refund_amount:         0,
+        deduction_amount:      0,
         deposit_received_date: move.new_start_date || move.move_date || new Date().toISOString().slice(0,10),
-        notes: 'مسجّل عند تأكيد الانتقال'
+        notes:                 'مسجّل عند تأكيد الانتقال',
+        created_by:            ME ? ME.id : null
       });
     }
 
     // Mark move done
     await sb.from('moves').update({ status: 'done' }).eq('id', moveId);
-    toast(LANG==='ar'?'✅ تم تأكيد الانتقال':'✅ Move confirmed','ok');
+
+    toast(LANG==='ar'?'✅ تم تأكيد الانتقال':'✅ Move confirmed', 'ok');
     loadMovesList('arrive');
+    if(window.loadHome) loadHome(null, true);
+
   } catch(e) {
-    toast('خطأ: '+e.message,'err');
+    toast((LANG==='ar'?'خطأ: ':'Error: ')+e.message, 'err');
+    console.error('confirmArrival:', e);
   }
 }
 window.confirmArrival = confirmArrival;
@@ -1740,7 +1764,7 @@ async function confirmScheduledTransfer(transferId, fromSnapshot, toSnapshot, fr
     // Archive toUnit to unit_history
     if(t.tenant_name) {
       await sb.from('unit_history').insert({
-        unit_id: toId, apartment: parseInt(t.apartment)||0, room: parseInt(t.room)||0,
+        unit_id: toId, apartment: String(t.apartment||''), room: String(t.room||''),
         tenant_name: t.tenant_name, tenant_name2: t.tenant_name2,
         phone: t.phone, phone2: t.phone2,
         monthly_rent: t.monthly_rent, rent1: t.rent1, rent2: t.rent2,

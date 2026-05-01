@@ -23,11 +23,11 @@ async function autoFillDepDate() {
       // نفس منطق autoFillRent — جرب room كـ string الأول ثم كـ integer
       var { data: u } = await sb.from('units')
         .select('id,start_date,tenant_name,deposit,monthly_rent')
-        .eq('apartment', parseInt(apt)).eq('room', room).maybeSingle();
+        .eq('apartment', String(apt)).eq('room', room).maybeSingle();
       if(!u && !isNaN(room)) {
         var { data: u2 } = await sb.from('units')
           .select('id,start_date,tenant_name,deposit,monthly_rent')
-          .eq('apartment', parseInt(apt)).eq('room', parseInt(room)).maybeSingle();
+          .eq('apartment', String(apt)).eq('room', String(room)).maybeSingle();
         u = u2;
       }
       if(!u) return;
@@ -85,13 +85,13 @@ async function autoFillRent() {
       // Normalize room — try as-is first, then as integer
       var { data: unit } = await sb.from('units')
         .select('id,monthly_rent,rent1,rent2,tenant_name,tenant_name2,phone,phone2,language,start_date')
-        .eq('apartment', parseInt(apt)).eq('room', room).maybeSingle();
+        .eq('apartment', String(apt)).eq('room', room).maybeSingle();
 
       // If not found as string, try as integer
       if(!unit && !isNaN(room)) {
         var { data: unit2 } = await sb.from('units')
           .select('id,monthly_rent,rent1,rent2,tenant_name,tenant_name2,phone,phone2,language,start_date')
-          .eq('apartment', parseInt(apt)).eq('room', parseInt(room)).maybeSingle();
+          .eq('apartment', String(apt)).eq('room', String(room)).maybeSingle();
         unit = unit2;
       }
       if(!unit) { console.log('autoFillRent: unit not found apt='+apt+' room='+room); return; }
@@ -170,13 +170,23 @@ async function saveRent(btn) {
 
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   try{
+    // تحقق من وجود دفعة في نفس الشهر
+    var { data: existPays } = await sb.from('rent_payments')
+      .select('id,amount').eq('apartment',String(apt)).eq('room',String(room))
+      .like('payment_month', mon.slice(0,7)+'%');
+    if(existPays && existPays.length > 0) {
+      var existTotal = existPays.reduce(function(s,p){return s+parseFloat(p.amount||0);},0);
+      if(!confirm((LANG==='ar'?'يوجد دفعة مسجّلة لهذا الشهر بقيمة ':'Existing payment this month: ')+existTotal+' AED. '+(LANG==='ar'?'هل تريد إضافة دفعة أخرى؟':'Add another payment?'))) {
+        btn.disabled=false; btn.innerHTML=orig; return;
+      }
+    }
     var { data: unit } = await sb.from('units')
       .select('id,language,phone,phone2,tenant_name')
-      .eq('apartment', parseInt(apt)).eq('room', room).maybeSingle();
+      .eq('apartment', String(apt)).eq('room', room).maybeSingle();
     if(!unit && !isNaN(room)) {
       var { data: unit2 } = await sb.from('units')
         .select('id,language,phone,phone2,tenant_name')
-        .eq('apartment', parseInt(apt)).eq('room', parseInt(room)).maybeSingle();
+        .eq('apartment', String(apt)).eq('room', String(room)).maybeSingle();
       unit = unit2;
     }
     if(!unit) throw new Error(LANG==='ar'?'الوحدة غير موجودة':'Unit not found');
@@ -1604,7 +1614,7 @@ async function bulkSavePay(unitId, apt, room, mon, today) {
   try {
     var { error } = await sb.from('rent_payments').insert({
       unit_id:        unitId,
-      apartment:      parseInt(apt),
+      apartment: String(apt),
       room:           String(room),
       amount:         amt,
       payment_month: toMonthFirst(mon),

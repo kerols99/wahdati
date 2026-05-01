@@ -11,8 +11,11 @@ async function loadHome(btn, force) {
     var ym  = getActiveMonth();
     var monthNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
     var monthNamesEN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    var mn = LANG==='ar' ? monthNames[now.getMonth()] : monthNamesEN[now.getMonth()];
-    document.getElementById('home-month').textContent = mn + ' ' + now.getFullYear();
+    var _activeYM = getActiveMonth().split('-');
+    var _activeMonthIdx = parseInt(_activeYM[1]) - 1;
+    var _activeYear = _activeYM[0];
+    var mn = LANG==='ar' ? monthNames[_activeMonthIdx] : monthNamesEN[_activeMonthIdx];
+    document.getElementById('home-month').textContent = mn + ' ' + _activeYear;
 
     var { data: units } = await sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,phone,rent1,rent2,start_date,language').eq('is_vacant',false).order('apartment').order('room');
     if(!units) units=[];
@@ -103,7 +106,7 @@ async function loadUnits() {
       ).join('');
     }
     // Select only fields needed for unit cards
-  var { data } = await sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,phone,phone2,rent1,rent2,start_date,is_vacant,unit_status,deposit,building_name,unit_code,persons_count,language,notes,window_status').order('apartment',{ascending:true});
+  var { data } = await sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,phone,phone2,rent1,rent2,start_date,is_vacant,unit_status,deposit,persons_count,language,notes').order('apartment',{ascending:true});
     if(!data) data=[];
     data.sort((a,b)=>{
       var aptA=parseInt(a.apartment)||0, aptB=parseInt(b.apartment)||0;
@@ -214,7 +217,7 @@ function renderUnits(units, paidMap) {
     var paidHtml = (!u.is_vacant && paid > 0 && paid < rent)
       ? '<div style="font-size:.62rem;color:var(--green);margin-top:1px">دفع '+paid.toLocaleString()+'</div>'
       : '';
-    var aptLabel = 'شقة '+escapeHtml(u.apartment)+' · '+escapeHtml(u.room)+(u.building_name?' · '+escapeHtml(u.building_name):'');
+    var aptLabel = 'شقة '+escapeHtml(u.apartment)+' · '+escapeHtml(u.room);
 
     return '<div class="unit-card" data-uid="'+u.id+'" style="border:1.5px solid '+stripeColor+'40;border-right:3px solid '+stripeColor+';border-radius:16px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:11px;background:var(--surf);box-shadow:0 2px 10px rgba(0,0,0,.2);cursor:pointer;transition:transform .12s,box-shadow .18s;touch-action:manipulation">'
       +'<div style="min-width:42px;height:42px;border-radius:12px;background:'+color+'20;color:'+color+';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0">'+escapeHtml(u.apartment)+'</div>'
@@ -264,7 +267,7 @@ function filterUnits() {
   var bldFilter = (document.getElementById('building-filter')||{}).value || '';
   var filtered = MO.filter(function(u) {
     // Building filter
-    if(bldFilter && (u.building_name||'') !== bldFilter) return false;
+    if(bldFilter) return false; // building filter disabled — column not in schema
     if(q) {
       var apartment = normalizeUnitSearch(u.apartment || '');
       var room = normalizeUnitSearch(u.room || '');
@@ -583,7 +586,7 @@ function closeDrawer() {
   if(ov) { ov.classList.remove('open'); ov.style.display=''; }
   if(dr) { dr.classList.remove('open'); dr.style.display=''; }
   document.body.style.overflow = '';
-  MO = [];
+  // لا نمسح MO هنا — محتاجينه للـ filterUnits
 }
 
 async function editUnit(unitId) {
@@ -674,7 +677,7 @@ async function saveUnit(btn) {
       building_name: (document.getElementById('u-building')&&document.getElementById('u-building').value.trim())||null,
     };
 
-    var { data: existing } = await sb.from('units').select('id').eq('apartment',apt).eq('room',room).single();
+    var { data: existing } = await sb.from('units').select('id').eq('apartment',apt).eq('room',room).maybeSingle();
 
     if(existing) {
       var { error } = await sb.from('units').update(payload).eq('id',existing.id);

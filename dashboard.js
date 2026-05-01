@@ -898,7 +898,7 @@ async function activateReservedUnits() {
     // Auto-confirm pending bookings (arrive) whose date has arrived
     var { data: pendingArrivals } = await sb.from('moves')
       .select('*').eq('type','arrive').eq('status','pending')
-      .lte('new_start_date', today2);
+      .or('new_start_date.lte.'+today2+',and(new_start_date.is.null,move_date.lte.'+today2+')');
     if(pendingArrivals && pendingArrivals.length) {
       for(var j=0; j<pendingArrivals.length; j++) {
         var mv = pendingArrivals[j];

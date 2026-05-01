@@ -80,22 +80,22 @@ async function afterLogin() {
   testConn();
   applyLang();
 
-  // Pre-fill current month in all report/payment month inputs
-  var now = new Date();
-  var ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  var today = now.toISOString().slice(0,10);
-  var monthInputs = ['r-month','rcoll-month','rdep-month','e-month','o-month'];
+  // Pre-fill month inputs — استخدام getActiveMonth() عشان يحترم SELECTED_MONTH
+  var _ym    = getActiveMonth();
+  var _today = getActivePaymentDate();
+  var _year  = _ym.split('-')[0];
+  var monthInputs = ['r-month','rcoll-month','rdep-month','e-month','o-month',
+                     'pay-month','exp-month','own-month'];
   var yearEl2 = document.getElementById('rcmp-year');
-  if(yearEl2 && !yearEl2.value) yearEl2.value = now.getFullYear();
+  if(yearEl2 && !yearEl2.value) yearEl2.value = _year;
   var yearEl3 = document.getElementById('r-year');
-  if(yearEl3 && !yearEl3.value) yearEl3.value = now.getFullYear();
+  if(yearEl3 && !yearEl3.value) yearEl3.value = _year;
   monthInputs.forEach(function(id){
     var el = document.getElementById(id);
-    if(el && !el.value) el.value = ym;
+    if(el) el.value = _ym;
   });
-  // Keep payment date as today
   var pdEl = document.getElementById('r-pdate');
-  if(pdEl && !pdEl.value) pdEl.value = today;
+  if(pdEl) pdEl.value = _today;
 }
 
 
