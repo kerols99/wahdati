@@ -1,3 +1,9 @@
+function toMonthFirst(ym) {
+  if(!ym) return null;
+  var s = String(ym).slice(0,7);
+  return s.length === 7 ? s + '-01' : null;
+}
+
 // ══ PAYMENTS ══
 
 async function autoFillDepDate() {
@@ -98,13 +104,12 @@ async function autoFillRent() {
 
       // ── Auto-fill month ──
       if(monEl && !monEl.value) {
-        var now = new Date();
-        monEl.value = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+        monEl.value = getActiveMonth();
       }
 
       // ── Auto-fill receipt date ──
       if(pdateEl && !pdateEl.value) {
-        pdateEl.value = new Date().toISOString().slice(0,10);
+        pdateEl.value = getActivePaymentDate();
       }
 
       if(unit.tenant_name2) {
@@ -178,7 +183,7 @@ async function saveRent(btn) {
 
     var tNum = Number(document.getElementById('r-tenant-num').value||0);
     var pdateVal = document.getElementById('r-pdate').value;
-    var paymentDate = pdateVal || new Date().toISOString().split('T')[0];
+    var paymentDate = pdateVal || getActivePaymentDate();
     // RULE: always save BOTH fields
     // payment_month = when rent is DUE (accrual basis)
     // payment_date  = when cash was RECEIVED (cash basis)
@@ -189,7 +194,7 @@ async function saveRent(btn) {
       room: room,
       amount: amt,
       amount_paid: amt,
-      payment_month: mon,
+      payment_month: toMonthFirst(mon),
       payment_date: paymentDate,
       payment_method: meth,
       received_by: ME?.id||null,
@@ -208,7 +213,7 @@ async function saveRent(btn) {
       room:           room,
       tenant_name:    (unit.tenant_name || '').split(' ')[0] || '',
       amount:         amt,
-      payment_month:  (mon||'').slice(0,7),
+      payment_month: toMonthFirst(mon),
       payment_date:   paymentDate,
       payment_method: meth,
       lang:           (unit.language||'ar').toLowerCase(),
@@ -287,8 +292,7 @@ async function calcOwnerBalance() {
   var monEl = document.getElementById('o-month');
   // Auto-fill current month if empty
   if(monEl && !monEl.value) {
-    var now = new Date();
-    monEl.value = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    monEl.value = getActiveMonth();
   }
   var mon = monEl ? monEl.value : '';
   if(!mon) return;
@@ -369,7 +373,7 @@ async function saveOwner(btn) {
   try{
     var { error } = await sb.from('owner_payments').insert({
       amount: amt, period_month: (mon||'').slice(0,7)+'-01',
-      payment_date: new Date().toISOString().slice(0,10),
+      payment_date: getActivePaymentDate(),
       method: document.getElementById('o-meth').value,
       reference: document.getElementById('o-ref').value.trim()||null,
       notes: document.getElementById('o-notes').value.trim()||null,
@@ -738,7 +742,7 @@ async function saveEditPayment(payId, unitId) {
     var pdate = pdateEl ? pdateEl.value : null;
     var { error } = await sb.from('rent_payments').update({
       amount: amt, amount_paid: amt,
-      payment_month: mon,
+      payment_month: toMonthFirst(mon),
       payment_date: pdate||null,
       payment_method: meth,
       notes: notes
@@ -1603,7 +1607,7 @@ async function bulkSavePay(unitId, apt, room, mon, today) {
       apartment:      parseInt(apt),
       room:           String(room),
       amount:         amt,
-      payment_month:  mon,
+      payment_month: toMonthFirst(mon),
       payment_date:   today,
       payment_method: meth
     });

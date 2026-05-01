@@ -8,7 +8,7 @@ async function loadHome(btn, force) {
   if(btn){var orig=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span>';}
   try {
     var now = new Date();
-    var ym  = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    var ym  = getActiveMonth();
     var monthNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
     var monthNamesEN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     var mn = LANG==='ar' ? monthNames[now.getMonth()] : monthNamesEN[now.getMonth()];
@@ -123,7 +123,7 @@ async function loadUnits() {
     }
 
     var now = new Date();
-    var ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    var ym  = getActiveMonth();
     var nextM = new Date(now); nextM.setMonth(nextM.getMonth()+1);
     var nextYM = nextM.getFullYear()+'-'+String(nextM.getMonth()+1).padStart(2,'0');
 
@@ -321,7 +321,7 @@ async function openDrawer(unitId) {
 
     try {
 var now = new Date();
-  var ym  = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    var ym  = getActiveMonth();
 
   // DRAWER: show rent paid for this month (by due month, not receipt date)
   var { data: pays } = await sb.from('rent_payments')

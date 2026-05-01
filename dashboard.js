@@ -445,7 +445,7 @@ async function repeatLastPayment() {
 async function openLatePayersPanel() {
   try {
     var now = new Date();
-    var ym  = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    var ym  = getActiveMonth();
 
     var [unitsRes, paysRes] = await Promise.all([
       sb.from('units').select('id,apartment,room,tenant_name,phone,monthly_rent,is_vacant,start_date,language').eq('is_vacant',false),
@@ -637,7 +637,7 @@ function generateUnitCode(apartment, room, building) {
 
 function initDashboard() {
   var now = new Date();
-  var ym  = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    var ym  = getActiveMonth();
 
   // Set default month inputs
   ['rpm','rcoll-month','rem','rdep-month'].forEach(function(id){
@@ -667,7 +667,7 @@ var _dashOrigLoadHome = window.loadHome;
 window.loadHome = async function(btn, force) {
   if(_dashOrigLoadHome) await _dashOrigLoadHome(btn, force);
   var now = new Date();
-  var ym  = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    var ym  = getActiveMonth();
   loadSmartDash(ym);
   if(!window._appReadyFired){ window._appReadyFired=true; document.dispatchEvent(new Event('appReady')); }
 };
@@ -838,6 +838,8 @@ window.loadCollReport      = loadCollReport;
 
 // ══ AUTO-ACTIVATE RESERVED UNITS ══
 async function activateReservedUnits() {
+  if(window._activatingUnits) return;
+  window._activatingUnits = true;
   try {
     var today = new Date().toISOString().slice(0,10);
     // Find reserved units whose start_date has arrived
@@ -913,12 +915,12 @@ async function activateReservedUnits() {
           is_vacant: false,
           unit_status: 'occupied',
           language: (mv.notes && mv.notes.indexOf('lang:AR')>-1) ? 'AR' : 'EN'
-        }).eq('id', parseInt(mv.unit_id));
+        }).eq('id', mv.unit_id);
         // Mark move as done
         await sb.from('moves').update({ status: 'done' }).eq('id', mv.id);
         // Delete duplicate deposit (عربون حجز) if confirmation deposit was added
         await sb.from('deposits').delete()
-          .eq('unit_id', parseInt(mv.unit_id))
+          .eq('unit_id', mv.unit_id)
           .like('notes','%عربون حجز%');
       }
       toast('✅ تم تأكيد '+pendingArrivals.length+' حجز تلقائياً', 'ok');
@@ -965,6 +967,7 @@ async function activateReservedUnits() {
 
 
   } catch(e) { /* silent */ }
+  finally { window._activatingUnits = false; }
 }
 
 window.loadSmartDash       = loadSmartDash;

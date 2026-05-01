@@ -174,3 +174,145 @@ function applyTheme(theme) { APP_THEME = theme; document.documentElement.setAttr
 function toggleTheme() { applyTheme(APP_THEME === 'dark' ? 'light' : 'dark'); }
 
 window.initSB=initSB; window.toast=toast; window.goPanel=goPanel; window.switchTab=switchTab; window.testConn=testConn; window.applyLang=applyLang; window.toggleLang=toggleLang; window.t=t; window.setT=setT; window.setOptT=setOptT; window.applyTheme=applyTheme; window.toggleTheme=toggleTheme;
+
+// ══════════════════════════════════════
+// SELECTED_MONTH — Global month selector
+// كل التطبيق بيستخدم الشهر ده بدل new Date()
+// ══════════════════════════════════════
+var SELECTED_MONTH = null; // null = الشهر الحالي
+
+function getActiveMonth() {
+  if(SELECTED_MONTH) return SELECTED_MONTH;
+  var now = new Date();
+  return now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+}
+
+function getActiveMonthFirst() {
+  return getActiveMonth() + '-01';
+}
+
+function getActiveMonthEnd() {
+  // آخر يوم في الشهر المختار
+  var ym = getActiveMonth().split('-');
+  return new Date(parseInt(ym[0]), parseInt(ym[1]), 0).toISOString().slice(0,10);
+}
+
+function isHistoricalMonth() {
+  if(!SELECTED_MONTH) return false;
+  var now = new Date();
+  var currentYM = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  return SELECTED_MONTH !== currentYM && SELECTED_MONTH < currentYM;
+}
+
+function isFutureMonth() {
+  if(!SELECTED_MONTH) return false;
+  var now = new Date();
+  var currentYM = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  return SELECTED_MONTH > currentYM;
+}
+
+// payment_date للشهر المختار = آخر يوم فيه
+function getActivePaymentDate() {
+  if(isHistoricalMonth()) return getActiveMonthEnd();
+  return new Date().toISOString().slice(0,10);
+}
+
+window.getActiveMonth       = getActiveMonth;
+window.getActiveMonthFirst  = getActiveMonthFirst;
+window.getActiveMonthEnd    = getActiveMonthEnd;
+window.isHistoricalMonth    = isHistoricalMonth;
+window.getActivePaymentDate = getActivePaymentDate;
+
+// ══════════════════════════════════════
+// Month Selector UI
+// ══════════════════════════════════════
+function initMonthSelector() {
+  updateMonthSelectorUI();
+}
+
+function updateMonthSelectorUI() {
+  var ym    = getActiveMonth();
+  var label = document.getElementById('month-selector-label');
+  var sub   = document.getElementById('month-selector-sub');
+  var todayBtn  = document.getElementById('month-today-btn');
+  var nextBtn   = document.getElementById('month-next-btn');
+
+  if(!label) return;
+
+  var now       = new Date();
+  var currentYM = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  var isHistory = isHistoricalMonth();
+  var isFuture  = ym > currentYM;
+
+  // Label
+  var months_ar = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  var months_en = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var parts = ym.split('-');
+  var mIdx  = parseInt(parts[1]) - 1;
+  var year  = parts[0];
+  var mName = LANG==='ar' ? months_ar[mIdx] : months_en[mIdx];
+
+  label.textContent = mName + ' ' + year;
+  label.style.color = isHistory ? 'var(--amber)' : isFuture ? 'var(--accent)' : 'var(--text)';
+
+  if(sub) {
+    sub.textContent = isHistory ? (LANG==='ar'?'وضع الاسترجاع':'History Mode') :
+                      isFuture  ? (LANG==='ar'?'شهر قادم':'Future Month') :
+                                  (LANG==='ar'?'الشهر الحالي':'Current Month');
+    sub.style.color = isHistory ? 'var(--amber)' : isFuture ? 'var(--accent)' : 'var(--green)';
+  }
+
+  // Show/hide "back to current" button
+  if(todayBtn) todayBtn.style.display = (isHistory || isFuture) ? 'block' : 'none';
+
+  // Disable next if current month
+  if(nextBtn) nextBtn.style.opacity = isFuture ? '0.4' : '1';
+
+  // تغيير لون الـ bar لو في وضع استرجاع
+  var bar = document.getElementById('month-selector-bar');
+  if(bar) bar.style.borderBottom = isHistory ? '2px solid var(--amber)' : isFuture ? '2px solid var(--accent)' : '1px solid var(--border)';
+}
+
+function changeActiveMonth(delta) {
+  var ym    = getActiveMonth().split('-');
+  var year  = parseInt(ym[0]);
+  var month = parseInt(ym[1]) + delta;
+
+  if(month > 12) { month = 1; year++; }
+  if(month < 1)  { month = 12; year--; }
+
+  var newYM = year + '-' + String(month).padStart(2,'0');
+
+  // منع الانتقال لأكتر من شهر في المستقبل
+  var now = new Date();
+  var nextYM = now.getFullYear()+'-'+String(now.getMonth()+2 > 12 ? 1 : now.getMonth()+2).padStart(2,'0');
+  if(newYM > nextYM) return;
+
+  SELECTED_MONTH = newYM;
+  updateMonthSelectorUI();
+  refreshAllScreens();
+}
+
+function resetToCurrentMonth() {
+  SELECTED_MONTH = null;
+  updateMonthSelectorUI();
+  refreshAllScreens();
+}
+
+function refreshAllScreens() {
+  // إعادة تحميل الشاشة الحالية
+  var activePanel = document.querySelector('.panel.active');
+  if(!activePanel) return;
+  var id = activePanel.id;
+
+  if(id === 'panel-home')     { if(window.loadHome)    loadHome(null, true); }
+  else if(id === 'panel-units')    { if(window.loadUnits)   loadUnits(); }
+  else if(id === 'panel-reports')  { if(window.loadReports) loadReports(); }
+  else if(id === 'panel-ops')      { /* payments reload on tab switch */ }
+}
+
+window.initMonthSelector   = initMonthSelector;
+window.updateMonthSelectorUI = updateMonthSelectorUI;
+window.changeActiveMonth   = changeActiveMonth;
+window.resetToCurrentMonth = resetToCurrentMonth;
+window.refreshAllScreens   = refreshAllScreens;

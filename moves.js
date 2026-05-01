@@ -375,7 +375,7 @@ async function saveArrivalEntry(btn){
   try {
     // If no unitId, find it
     if(!unitId) {
-      var r2 = await sb.from('units').select('id,tenant_name,tenant_name2,phone,phone2,monthly_rent,rent1,rent2,deposit,persons_count,start_date,notes').eq('apartment',parseInt(apt)).eq('room',parseInt(room)).maybeSingle();
+      var r2 = await sb.from('units').select('id,tenant_name,tenant_name2,phone,phone2,monthly_rent,rent1,rent2,deposit,persons_count,start_date,notes').eq('apartment', String(apt)).eq('room', String(room)).maybeSingle();
       if(r2.data) unitId = r2.data.id;
     }
 
@@ -434,8 +434,8 @@ async function saveArrivalEntry(btn){
       arrival_unit_id: unitId||null,
       linked_depart_id: null, // departId is UUID but column is integer — skip
       tenant_name: name,
-      apartment: parseInt(apt),
-      room: parseInt(room),
+      apartment: String(apt),
+      room: String(room),
       move_date: date||null,
       notes: notes||null,
       phone: phone||null,
@@ -502,8 +502,8 @@ async function saveMoveEntry(type, btn){
   var { data: existingDep } = await sb.from('moves')
     .select('id')
     .eq('type','depart')
-    .eq('apartment', parseInt(apt))
-    .eq('room', parseInt(room))
+    .eq('apartment', String(apt))
+    .eq('room', String(room))
     .eq('status','pending')
     .limit(1);
   if(existingDep && existingDep.length > 0) {
@@ -516,8 +516,8 @@ async function saveMoveEntry(type, btn){
       type: 'depart',
       unit_id: unitId||null,
       tenant_name: name,
-      apartment: parseInt(apt),
-      room: parseInt(room),
+      apartment: String(apt),
+      room: String(room),
       move_date: date||null,
       notes: notes||null,
       phone: phone||null,
@@ -581,7 +581,7 @@ async function quickMarkDepartureFromUnit(unit){
   try {
     if(await hasDepartureForUnit(unit.id)){ toast(t('alreadyMarkedDepart'),'err'); return; }
     var payload = {
-      type:'depart', unit_id: unit.id, tenant_name: unit.tenant_name || '', apartment: parseInt(unit.apartment,10), room: parseInt(unit.room,10),
+      type:'depart', unit_id: unit.id, tenant_name: unit.tenant_name || '', apartment: String(unit.apartment), room: String(unit.room),
       move_date: endOfCurrentMonthISO(), phone: unit.phone || null, persons_count: parseInt(unit.persons_count,10)||1,
       notes: LANG==='ar' ? 'مغادر آخر الشهر' : 'Leaving at month end', created_by:(ME||{}).id || null
     };
@@ -1450,8 +1450,8 @@ async function executeInternalTransfer() {
     // 1. Save snapshots in unit_history + internal_transfers
     await sb.from('unit_history').insert({
       unit_id: fromId,
-      apartment: parseInt(fromUnit.apartment)||0,
-      room: parseInt(fromUnit.room)||0,
+      apartment: String(fromUnit.apartment||''),
+      room: String(fromUnit.room||''),
       tenant_name: fromUnit.tenant_name,
       tenant_name2: fromUnit.tenant_name2,
       phone: fromUnit.phone,
@@ -1471,8 +1471,8 @@ async function executeInternalTransfer() {
     if(toUnit.tenant_name) {
       await sb.from('unit_history').insert({
         unit_id: toId,
-        apartment: parseInt(toUnit.apartment)||0,
-        room: parseInt(toUnit.room)||0,
+        apartment: String(toUnit.apartment||''),
+        room: String(toUnit.room||''),
         tenant_name: toUnit.tenant_name,
         tenant_name2: toUnit.tenant_name2,
         phone: toUnit.phone,
@@ -1727,7 +1727,7 @@ async function confirmScheduledTransfer(transferId, fromSnapshot, toSnapshot, fr
 
     // Archive fromUnit to unit_history
     await sb.from('unit_history').insert({
-      unit_id: fromId, apartment: parseInt(f.apartment)||0, room: parseInt(f.room)||0,
+      unit_id: fromId, apartment: String(f.apartment||''), room: String(f.room||''),
       tenant_name: f.tenant_name, tenant_name2: f.tenant_name2,
       phone: f.phone, phone2: f.phone2,
       monthly_rent: f.monthly_rent, rent1: f.rent1, rent2: f.rent2,

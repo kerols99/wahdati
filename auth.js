@@ -54,6 +54,7 @@ async function afterLogin() {
 
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
+  if(window.initMonthSelector) initMonthSelector();
   var adminSec = document.getElementById('adminSec');
   if(adminSec) adminSec.style.display = 'none';
 

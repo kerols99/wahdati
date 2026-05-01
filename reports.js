@@ -30,8 +30,7 @@ async function loadMonthly(btn) {
   // Auto-fill current month if empty
   var rpmEl = document.getElementById('rpm');
   if(rpmEl && !rpmEl.value) {
-    var now = new Date();
-    rpmEl.value = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    rpmEl.value = getActiveMonth();
   }
   var mon = rpmEl ? rpmEl.value : '';
   if(!mon){toast(LANG==='ar'?'اختر الشهر':'Choose month','err');return;}

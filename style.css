@@ -821,3 +821,19 @@ html, body { transition: background .2s ease; }
     padding: 20px;
   }
 }
+
+/* Month Selector Bar */
+#month-selector-bar {
+  transition: border-color .3s;
+}
+#month-selector-bar button {
+  font-family: var(--font);
+  transition: opacity .2s;
+}
+#month-selector-bar button:active {
+  transform: scale(.95);
+}
+/* Historical mode — amber tint on topbar */
+body.historical-mode #month-selector-bar {
+  background: var(--amber)08;
+}
