@@ -237,7 +237,11 @@ function updateMonthSelectorUI() {
   var todayBtn  = document.getElementById('month-today-btn');
   var nextBtn   = document.getElementById('month-next-btn');
 
-  if(!label) return;
+  // لو العناصر مش موجودة — retry بعد 200ms
+  if(!label) {
+    setTimeout(updateMonthSelectorUI, 200);
+    return;
+  }
 
   var now       = new Date();
   var currentYM = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
