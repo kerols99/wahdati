@@ -227,6 +227,9 @@ window.getActivePaymentDate = getActivePaymentDate;
 // Month Selector UI
 // ══════════════════════════════════════
 function initMonthSelector() {
+  // إظهار الـ bar بعد اللوجين
+  var bar = document.getElementById('month-selector-bar');
+  if(bar) bar.style.display = 'flex';
   updateMonthSelectorUI();
 }
 
