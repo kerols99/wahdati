@@ -37,6 +37,9 @@ async function loadHome(btn, force) {
 
       // NEW THIS MONTH: unit start_date is in current month
       // They only paid deposit - don't count in unpaid/partial
+      // لو المستأجر دخل بعد الشهر المختار — تجاهله كلياً
+      if(u.start_date && u.start_date.slice(0,7) > ymPrefix) return;
+      
       if(u.start_date && u.start_date.slice(0,7) === ymPrefix) {
         if(got >= rent && rent > 0) paid++;
         // else: new tenant, deposit paid, no rent due yet → skip
@@ -129,6 +132,9 @@ async function loadUnits() {
     var ym  = getActiveMonth();
     var nextM = new Date(now); nextM.setMonth(nextM.getMonth()+1);
     var nextYM = nextM.getFullYear()+'-'+String(nextM.getMonth()+1).padStart(2,'0');
+    var isHistorical = window.isHistoricalMonth ? isHistoricalMonth() : false;
+    var monStart = ym + '-01';
+    var monEndDate = window.monthEnd ? monthEnd(ym) : ym + '-31';
 
     // Fetch payments + scheduled departures in parallel
     var [paysRes, departRes] = await Promise.all([
@@ -159,6 +165,46 @@ async function loadUnits() {
     // Attach departure info to units
     data.forEach(function(u){ u._scheduledDepart = departMap[u.id]||null; });
 
+    // ══ وضع الاسترجاع: نجيب المستأجرين السابقين من unit_history ══
+    if(isHistorical) {
+      var { data: histData } = await sb.from('unit_history')
+        .select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,start_date,end_date')
+        .lte('start_date', monEndDate)
+        .gte('end_date', monStart)
+        .eq('snapshot_type', 'departure');
+
+      if(histData && histData.length) {
+        var existingIds = new Set(data.map(function(u){ return u.id; }));
+        histData.forEach(function(h) {
+          if(!existingIds.has(h.unit_id)) {
+            // الوحدة فاضية دلوقتي أو مستأجر جديد — أضف السابق
+            data.push({
+              id:           h.unit_id,
+              apartment:    String(h.apartment||''),
+              room:         String(h.room||''),
+              monthly_rent: h.monthly_rent||0,
+              tenant_name:  h.tenant_name||null,
+              tenant_name2: h.tenant_name2||null,
+              is_vacant:    false,
+              unit_status:  'occupied',
+              start_date:   h.start_date||null,
+              deposit:      0,
+              _isFormerTenant: true,
+              _endDate: h.end_date
+            });
+            existingIds.add(h.unit_id);
+          }
+        });
+        // إعادة ترتيب
+        data.sort(function(a,b){
+          var aptA=parseInt(a.apartment)||0, aptB=parseInt(b.apartment)||0;
+          if(aptA!==aptB) return aptA-aptB;
+          return (parseInt(a.room)||0)-(parseInt(b.room)||0);
+        });
+        MO = data;
+      }
+    }
+
     _paidMapCache = paidMap;
     _departMapCache = departMap;
     renderUnits(data, paidMap);
@@ -171,6 +217,7 @@ function renderUnits(units, paidMap) {
   var aptColors = ['#4f8ef7','#22c98a','#f5b731','#f05555','#a78bf5','#2dd4bf','#fb923c','#f472b6'];
   var _now2 = new Date();
   var currentYM = _now2.getFullYear()+'-'+String(_now2.getMonth()+1).padStart(2,'0');
+  var activeYM  = window.getActiveMonth ? getActiveMonth() : currentYM;
   var html = units.map(u=>{
     var ci = parseInt(u.apartment||0) % aptColors.length;
     var color = aptColors[ci];
@@ -178,7 +225,9 @@ function renderUnits(units, paidMap) {
     var rent = u.monthly_rent||0;
     var statusColor, statusTxt, badgeBg, stripeColor;
     var unitYM = (u.start_date||'').slice(0,7);
-    var isNewThisMonth = unitYM === currentYM;
+    var isNewThisMonth = unitYM === activeYM;
+    // لو المستأجر دخل بعد الشهر المختار — مكانش موجود في الشهر ده
+    var joinedAfterMonth = unitYM > activeYM && unitYM !== '';
 
     var isLeaving     = !u.is_vacant && u._scheduledDepart;
     var isReserved    = u.unit_status === 'reserved';
@@ -193,6 +242,23 @@ function renderUnits(units, paidMap) {
     } else if(isReserved) {
       statusColor='var(--purple)'; statusTxt=LANG==='ar'?'🔖 محجوز':'🔖 Reserved';
       badgeBg='rgba(167,139,245,.1)'; stripeColor='var(--purple)';
+    } else if(u._isFormerTenant) {
+      // مستأجر سابق — كان ساكن في الشهر المختار وغادر
+      var paidFmr = paidMap[u.id]||0;
+      if(paidFmr >= (u.monthly_rent||1) && u.monthly_rent > 0) {
+        statusColor='var(--green)'; statusTxt=LANG==='ar'?'👋 غادر/مدفوع':'👋 Left/Paid';
+        badgeBg='var(--green-bg)'; stripeColor='var(--green)';
+      } else if(paidFmr > 0) {
+        statusColor='var(--amber)'; statusTxt=LANG==='ar'?'👋 غادر/جزئي':'👋 Left/Partial';
+        badgeBg='var(--amber-bg)'; stripeColor='var(--amber)';
+      } else {
+        statusColor='var(--muted)'; statusTxt=LANG==='ar'?'👋 غادر':'👋 Left';
+        badgeBg='var(--surf3)'; stripeColor='var(--muted)';
+      }
+    } else if(joinedAfterMonth) {
+      // المستأجر دخل بعد الشهر المختار — مش موجود في هذا الشهر
+      statusColor='var(--muted)'; statusTxt=LANG==='ar'?'⏭️ لم يكن هنا':'⏭️ Not Yet';
+      badgeBg='var(--surf3)'; stripeColor='var(--muted)';
     } else if(isLeaving) {
       statusColor='var(--amber)'; statusTxt=LANG==='ar'?'📤 مغادر':'📤 Leaving';
       badgeBg='var(--amber-bg)'; stripeColor='var(--amber)';

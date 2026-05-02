@@ -56,11 +56,11 @@ async function loadMonthly(btn) {
         .gt('refund_amount', 0)
         .gte('refund_date', monStart)
         .lte('refund_date', monEnd),
-      // ══ المستأجرون السابقون الذين غادروا في هذا الشهر ══
-      // unit_history بيحفظ snapshot للمستأجر وقت المغادرة
-      // end_date في نفس الشهر = غادر في هذا الشهر
+      // ══ المستأجرون السابقون الذين غادروا في هذا الشهر أو بعده ══
+      // يشمل: غادر في الشهر + كان ساكن في الشهر وغادر بعده
       sb.from('unit_history').select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,deposit,start_date,end_date,snapshot_type')
-        .gte('end_date', monStart).lte('end_date', monEnd)
+        .lte('start_date', monEnd)
+        .gte('end_date', monStart)
         .eq('snapshot_type', 'departure')
     ]);
     var units        = unitsRes.data||[];
