@@ -39,9 +39,10 @@ async function loadMonthly(btn) {
     // Parallel fetch — only needed fields for performance
     var monStart = (mon||'').slice(0,7)+'-01';
     var monEnd   = window.monthEnd((mon||'').slice(0,7));
-    var [unitsRes, paysRes, expsRes, ownsRes, pendingMovesRes, depsRes, refundedDepsRes] = await Promise.all([
+    var [unitsRes, paysRes, expsRes, ownsRes, pendingMovesRes, depsRes, refundedDepsRes, histRes] = await Promise.all([
       sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,is_vacant,start_date,deposit').eq('is_vacant',false).order('apartment'),
       // ACCRUAL: filter rent by payment_month (when rent is DUE)
+      // بنجيب كل الدفعات في الشهر ده بغض النظر عن المستأجر الحالي
       sb.from('rent_payments').select('unit_id,amount,apartment,room,payment_month,payment_date,payment_method,notes,tenant_num').like('payment_month', mon + '%'),
       sb.from('expenses').select('amount,category,description,receipt_no,period_month').eq('period_month', monStart),
       sb.from('owner_payments').select('amount,period_month,method').eq('period_month', monStart),
@@ -54,10 +55,52 @@ async function loadMonthly(btn) {
       sb.from('deposits').select('unit_id,amount,refund_amount,refund_date,tenant_name,apartment,room')
         .gt('refund_amount', 0)
         .gte('refund_date', monStart)
-        .lte('refund_date', monEnd)
+        .lte('refund_date', monEnd),
+      // ══ المستأجرون السابقون الذين غادروا في هذا الشهر ══
+      // unit_history بيحفظ snapshot للمستأجر وقت المغادرة
+      // end_date في نفس الشهر = غادر في هذا الشهر
+      sb.from('unit_history').select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,deposit,start_date,end_date,snapshot_type')
+        .gte('end_date', monStart).lte('end_date', monEnd)
+        .eq('snapshot_type', 'departure')
     ]);
     var units        = unitsRes.data||[];
+    var histUnits    = histRes ? (histRes.data||[]) : [];
     var pendingMoves = pendingMovesRes ? (pendingMovesRes.data||[]) : [];
+
+    // ══ دمج المستأجرين السابقين في قائمة الوحدات ══
+    // المستأجر السابق: غادر في هذا الشهر — لازم يظهر في التقرير
+    // بنضيف صفوف وهمية للوحدات اللي فيها مستأجرين سابقين
+    // بس لو الوحدة مش موجودة في units الحالية (يعني مستأجر جديد دخل مكانه)
+    var existingUnitIds = new Set(units.map(function(u){ return u.id; }));
+    
+    histUnits.forEach(function(h) {
+      // لو في مستأجر جديد دخل على نفس الوحدة — مضيفين صف إضافي للسابق
+      // لو الوحدة فاضية دلوقتي — مضيفينها بيانات السابق
+      var fakeUnit = {
+        id:           h.unit_id,
+        apartment:    String(h.apartment || ''),
+        room:         String(h.room || ''),
+        monthly_rent: h.monthly_rent || 0,
+        tenant_name:  h.tenant_name || null,
+        tenant_name2: h.tenant_name2 || null,
+        is_vacant:    false,
+        start_date:   h.start_date || null,
+        deposit:      h.deposit || 0,
+        _isFormerTenant: true,
+        _endDate: h.end_date
+      };
+      
+      if(!existingUnitIds.has(h.unit_id)) {
+        // الوحدة فاضية دلوقتي — أضف المستأجر السابق
+        units.push(fakeUnit);
+        existingUnitIds.add(h.unit_id);
+      } else {
+        // في مستأجر جديد — أضف المستأجر السابق كصف منفصل
+        // عشان دفعته تظهر تحت اسمه مش اسم الجديد
+        fakeUnit.id = h.unit_id + '_former_' + (h.end_date||'').slice(0,10);
+        units.push(fakeUnit);
+      }
+    });
     // Build map: unit_id → pending move (for future tenant name)
     var pendingMoveMap = {};
     pendingMoves.forEach(function(m){
@@ -90,8 +133,17 @@ async function loadMonthly(btn) {
 
     // ── Maps ──
     // paidMap: rent paid this month per unit
+    // بنبني map بـ unit_id وكمان بـ apartment+room
     var paidMap = {};
-    pays.forEach(function(p){ paidMap[p.unit_id]=(paidMap[p.unit_id]||0)+(p.amount||0); });
+    var paidMapByRoom = {}; // apartment-room → amount
+    pays.forEach(function(p){
+      if(p.unit_id) paidMap[p.unit_id]=(paidMap[p.unit_id]||0)+(p.amount||0);
+      var roomKey = String(p.apartment||'')+'-'+String(p.room||'');
+      paidMapByRoom[roomKey] = (paidMapByRoom[roomKey]||0)+(p.amount||0);
+    });
+    
+    // للمستأجرين السابقين — نستخدم paidMapByRoom لأن unit_id قد يكون مختلف
+    // الوحدة اللي فيها مستأجر سابق + جديد — نقسم الدفعات بالتواريخ
 
     // depRawMap: all deposit rows per unit
     var depRawMap = {};
@@ -106,7 +158,8 @@ async function loadMonthly(btn) {
     // Uses _pickDepositForReport which checks deposit_received_date — correct
     var depMap = {};
     units.forEach(function(u){
-      var amt = _pickDepositForReport(depRawMap[u.id]||[], monYM);
+      var realId = u._isFormerTenant ? u.id.split('_former_')[0] : u.id;
+      var amt = _pickDepositForReport(depRawMap[realId]||[], monYM);
       if(amt > 0) depMap[u.id] = amt;
     });
 
@@ -124,9 +177,16 @@ async function loadMonthly(btn) {
     // ── Grand Totals ──
     var totalRent=0, totalRentColl=0, totalDeps=0, totalExp=0, totalOwner=0;
     units.forEach(function(u){
+      var realId = u._isFormerTenant ? u.id.split('_former_')[0] : u.id;
       totalRent     += u.monthly_rent||0;
-      totalRentColl += paidMap[u.id]||0;   // rent collected only
-      totalDeps     += depMap[u.id]||0;    // deposit collected this month
+      // للمستأجر السابق — نستخدم paidMapByRoom لو unit_id مش موجود في paidMap
+      var paidAmt = paidMap[realId];
+      if(paidAmt === undefined && u._isFormerTenant) {
+        var rk = String(u.apartment)+'-'+String(u.room);
+        paidAmt = paidMapByRoom[rk] || 0;
+      }
+      totalRentColl += paidAmt||0;
+      totalDeps     += depMap[u.id]||0;
     });
     // المُرتجعات في هذا الشهر — query منفصلة بـ refund_date
     var totalRefunds = refundedDeps.reduce(function(s,d){ return s+(Number(d.refund_amount)||0); }, 0);
@@ -143,9 +203,16 @@ async function loadMonthly(btn) {
       var apt = String(u.apartment);
       if(!apts[apt]) apts[apt]={units:[],rent:0,rentColl:0,coll:0,deps:0};
       apts[apt].units.push({...u, _isNew: isNewForMonth(u.start_date||'')});
+      var _realId2 = u._isFormerTenant ? u.id.split('_former_')[0] : u.id;
+      var _paidAmt2 = paidMap[_realId2];
+      if(_paidAmt2 === undefined && u._isFormerTenant) {
+        var _rk2 = String(u.apartment)+'-'+String(u.room);
+        _paidAmt2 = paidMapByRoom[_rk2] || 0;
+      }
+      _paidAmt2 = _paidAmt2 || 0;
       apts[apt].rent     += u.monthly_rent||0;
-      apts[apt].rentColl += paidMap[u.id]||0;           // rent only
-      apts[apt].coll     += (paidMap[u.id]||0) + (depMap[u.id]||0); // rent + deposit
+      apts[apt].rentColl += _paidAmt2;
+      apts[apt].coll     += _paidAmt2 + (depMap[u.id]||0);
       apts[apt].deps     += depMap[u.id]||0;
     });
 
@@ -206,15 +273,21 @@ async function loadMonthly(btn) {
 
         var rows = g.units.slice().sort(function(a,b){return Number(a.room)-Number(b.room);}).map(function(u){
           var dep      = depMap[u.id]||0;
-          var rentPaid = paidMap[u.id]||0;
-          var isNew    = u._isNew;
+          var _realId3 = u._isFormerTenant ? u.id.split('_former_')[0] : u.id;
+          var rentPaid = paidMap[_realId3];
+          if(rentPaid === undefined && u._isFormerTenant) {
+            var _rk3 = String(u.apartment)+'-'+String(u.room);
+            rentPaid = paidMapByRoom[_rk3] || 0;
+          }
+          rentPaid = rentPaid || 0;
+          var isNew    = u._isFormerTenant ? false : u._isNew;
           var showDep  = dep > 0; // show if deposit was received this month (regardless of isNew)
           var rem      = Math.max(0,(u.monthly_rent||0)-rentPaid);
           var fullPaid = !isNew && rentPaid>=(u.monthly_rent||0)&&(u.monthly_rent||0)>0;
           var partPaid = !isNew && !fullPaid && rentPaid>0;
           // Status badge
-          var stBg = isNew?'var(--accent)':fullPaid?'var(--green)':partPaid?'var(--amber)':'var(--red)';
-          var stTx = isNew?(dep>0?'🆕':'🆕'):fullPaid?'✅':partPaid?'⚠️':'❌';
+          var stBg = u._isFormerTenant?'var(--muted)':isNew?'var(--accent)':fullPaid?'var(--green)':partPaid?'var(--amber)':'var(--red)';
+          var stTx = u._isFormerTenant?'👋':isNew?(dep>0?'🆕':'🆕'):fullPaid?'✅':partPaid?'⚠️':'❌';
           var stBadge = '<span style="display:inline-block;background:'+stBg+'33;color:'+stBg+';border:1px solid '+stBg+'55;border-radius:6px;padding:2px 7px;font-size:.72rem;font-weight:800">'+stTx+'</span>';
           // Paid cell — strong green or red bg
           var paidCell = rentPaid>0
@@ -232,7 +305,7 @@ async function loadMonthly(btn) {
           var rowBg = partPaid?'background:rgba(245,183,49,.04);':(!isNew&&rem>0&&rentPaid===0?'background:rgba(240,85,85,.05);':'');
           return '<tr style="'+rowBg+'">'
             +'<td style="padding:7px 9px;border-bottom:1px solid var(--border)22;font-size:.8rem;font-weight:700;color:var(--text)">'+u.room+'</td>'
-            +'<td style="padding:7px 9px;border-bottom:1px solid var(--border)22;font-size:.75rem;font-weight:600;max-width:100px;overflow:hidden;text-overflow:ellipsis">'+(u.tenant_name||'—')+(u.tenant_name2?'<div style="font-size:.65rem;color:var(--amber)">+'+u.tenant_name2+'</div>':'')+'</td>'
+            +'<td style="padding:7px 9px;border-bottom:1px solid var(--border)22;font-size:.75rem;font-weight:600;max-width:100px;overflow:hidden;text-overflow:ellipsis">'+(u.tenant_name||'—')+(u.tenant_name2?'<div style="font-size:.65rem;color:var(--amber)">+'+u.tenant_name2+'</div>':'')+(u._isFormerTenant?'<div style="font-size:.6rem;color:var(--muted)">👋 غادر '+String(u._endDate||'').slice(0,10)+'</div>':'')+'</td>'
             +'<td style="padding:7px 9px;border-bottom:1px solid var(--border)22;font-size:.75rem;color:var(--muted)">'+(u.monthly_rent||0).toLocaleString()+'</td>'
             +'<td style="padding:7px 9px;border-bottom:1px solid var(--border)22">'+depCell+'</td>'
             +'<td style="padding:7px 9px;border-bottom:1px solid var(--border)22">'+paidCell+'</td>'
