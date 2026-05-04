@@ -97,7 +97,7 @@ async function loadMonthly(btn) {
       } else {
         // في مستأجر جديد — أضف المستأجر السابق كصف منفصل
         // عشان دفعته تظهر تحت اسمه مش اسم الجديد
-        fakeUnit.id = h.unit_id + '_former_' + (h.end_date||'').slice(0,10);
+        fakeUnit.id = String(h.unit_id||'') + '_former_' + (h.end_date||'').slice(0,10);
         units.push(fakeUnit);
       }
     });
@@ -158,7 +158,7 @@ async function loadMonthly(btn) {
     // Uses _pickDepositForReport which checks deposit_received_date — correct
     var depMap = {};
     units.forEach(function(u){
-      var realId = u._isFormerTenant ? u.id.split('_former_')[0] : u.id;
+      var realId = u._isFormerTenant ? String(u.id||'').split('_former_')[0] : u.id;
       var amt = _pickDepositForReport(depRawMap[realId]||[], monYM);
       if(amt > 0) depMap[u.id] = amt;
     });
@@ -177,7 +177,7 @@ async function loadMonthly(btn) {
     // ── Grand Totals ──
     var totalRent=0, totalRentColl=0, totalDeps=0, totalExp=0, totalOwner=0;
     units.forEach(function(u){
-      var realId = u._isFormerTenant ? u.id.split('_former_')[0] : u.id;
+      var realId = u._isFormerTenant ? String(u.id||'').split('_former_')[0] : u.id;
       totalRent     += u.monthly_rent||0;
       // للمستأجر السابق — نستخدم paidMapByRoom لو unit_id مش موجود في paidMap
       var paidAmt = paidMap[realId];
@@ -203,7 +203,7 @@ async function loadMonthly(btn) {
       var apt = String(u.apartment);
       if(!apts[apt]) apts[apt]={units:[],rent:0,rentColl:0,coll:0,deps:0};
       apts[apt].units.push({...u, _isNew: isNewForMonth(u.start_date||'')});
-      var _realId2 = u._isFormerTenant ? u.id.split('_former_')[0] : u.id;
+      var _realId2 = u._isFormerTenant ? String(u.id||'').split('_former_')[0] : u.id;
       var _paidAmt2 = paidMap[_realId2];
       if(_paidAmt2 === undefined && u._isFormerTenant) {
         var _rk2 = String(u.apartment)+'-'+String(u.room);
@@ -273,7 +273,7 @@ async function loadMonthly(btn) {
 
         var rows = g.units.slice().sort(function(a,b){return Number(a.room)-Number(b.room);}).map(function(u){
           var dep      = depMap[u.id]||0;
-          var _realId3 = u._isFormerTenant ? u.id.split('_former_')[0] : u.id;
+          var _realId3 = u._isFormerTenant ? String(u.id||'').split('_former_')[0] : u.id;
           var rentPaid = paidMap[_realId3];
           if(rentPaid === undefined && u._isFormerTenant) {
             var _rk3 = String(u.apartment)+'-'+String(u.room);
