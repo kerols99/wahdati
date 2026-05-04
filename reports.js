@@ -154,7 +154,12 @@ async function loadMonthly(btn) {
     // ── Maps ──
     // paidMap: rent paid this month per unit
     var paidMap = {};
-    pays.forEach(function(p){ paidMap[p.unit_id]=(paidMap[p.unit_id]||0)+(p.amount||0); });
+    var paidMapByRoom = {};
+    pays.forEach(function(p){
+      if(p.unit_id) paidMap[String(p.unit_id)] = (paidMap[String(p.unit_id)]||0)+(p.amount||0);
+      var _rk = String(p.apartment||'')+'-'+String(p.room||'');
+      paidMapByRoom[_rk] = (paidMapByRoom[_rk]||0)+(p.amount||0);
+    });
 
     // depRawMap: all deposit rows per unit
     var depRawMap = {};
@@ -188,7 +193,7 @@ async function loadMonthly(btn) {
     var totalRent=0, totalRentColl=0, totalDeps=0, totalExp=0, totalOwner=0;
     units.forEach(function(u){
       totalRent     += u.monthly_rent||0;
-      totalRentColl += paidMap[u.id]||0;   // rent collected only
+      var _pk1=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0); totalRentColl += _pk1;
       totalDeps     += depMap[u.id]||0;    // deposit collected this month
     });
     // المُرتجعات في هذا الشهر — query منفصلة بـ refund_date
@@ -207,8 +212,8 @@ async function loadMonthly(btn) {
       if(!apts[apt]) apts[apt]={units:[],rent:0,rentColl:0,coll:0,deps:0};
       apts[apt].units.push({...u, _isNew: isNewForMonth(u.start_date||'')});
       apts[apt].rent     += u.monthly_rent||0;
-      apts[apt].rentColl += paidMap[u.id]||0;           // rent only
-      apts[apt].coll     += (paidMap[u.id]||0) + (depMap[u.id]||0); // rent + deposit
+      var _pk3=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0); apts[apt].rentColl += _pk3;
+      apts[apt].coll += _pk3 + (depMap[u.id]||0);
       apts[apt].deps     += depMap[u.id]||0;
     });
 
@@ -269,7 +274,7 @@ async function loadMonthly(btn) {
 
         var rows = g.units.slice().sort(function(a,b){return Number(a.room)-Number(b.room);}).map(function(u){
           var dep      = depMap[u.id]||0;
-          var rentPaid = paidMap[u.id]||0;
+          var rentPaid=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0);
           var isNew    = u._isNew;
           var showDep  = dep > 0; // show if deposit was received this month (regardless of isNew)
           var rem      = Math.max(0,(u.monthly_rent||0)-rentPaid);
@@ -864,7 +869,12 @@ async function exportPDF(type, mon) {
     var monYM = mon.slice(0,7);
 
     var paidMap = {};
-    pays.forEach(function(p){ paidMap[p.unit_id]=(paidMap[p.unit_id]||0)+(p.amount||0); });
+    var paidMapByRoom = {};
+    pays.forEach(function(p){
+      if(p.unit_id) paidMap[String(p.unit_id)] = (paidMap[String(p.unit_id)]||0)+(p.amount||0);
+      var _rk = String(p.apartment||'')+'-'+String(p.room||'');
+      paidMapByRoom[_rk] = (paidMapByRoom[_rk]||0)+(p.amount||0);
+    });
 
     var depRawMap = {};
     deps.forEach(function(d){
@@ -882,7 +892,7 @@ async function exportPDF(type, mon) {
     var totalRent=0, totalRentColl=0, totalDeps=0, totalExp=0, totalOwner=0;
     units.forEach(function(u){
       totalRent     += u.monthly_rent||0;
-      totalRentColl += paidMap[u.id]||0;
+      var _pk2=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0); totalRentColl += _pk2;
       totalDeps     += depMap[u.id]||0;
     });
     var totalColl = totalRentColl + totalDeps;
@@ -896,7 +906,7 @@ async function exportPDF(type, mon) {
       if(!apts[apt]) apts[apt]={units:[],rent:0,rentColl:0,deps:0};
       apts[apt].units.push(u);
       apts[apt].rent     += u.monthly_rent||0;
-      apts[apt].rentColl += paidMap[u.id]||0;
+      var _pk4=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0); apts[apt].rentColl += _pk4;
       apts[apt].deps     += depMap[u.id]||0;
     });
 
@@ -936,7 +946,7 @@ async function exportPDF(type, mon) {
 
         g.units.slice().sort(function(a,b){return Number(a.room)-Number(b.room);}).forEach(function(u){
           var dep  = depMap[u.id]||0;
-          var got  = paidMap[u.id]||0;
+          var got=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0);
           var rem  = Math.max(0,(u.monthly_rent||0)-got);
           var st   = got>=(u.monthly_rent||0)&&(u.monthly_rent||0)>0?'✅':got>0?'⚠️':'❌';
           aptHTML += '<tr>'
