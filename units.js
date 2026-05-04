@@ -332,8 +332,8 @@ function filterUnits() {
   var q = normalizeUnitSearch(rawQ);
   var bldFilter = (document.getElementById('building-filter')||{}).value || '';
   var filtered = MO.filter(function(u) {
-    // Building filter
-    if(bldFilter) return false; // building filter disabled — column not in schema
+    // Building filter (apartment prefix match)
+    if(bldFilter && !String(u.apartment||'').startsWith(bldFilter)) return false;
     if(q) {
       var apartment = normalizeUnitSearch(u.apartment || '');
       var room = normalizeUnitSearch(u.room || '');

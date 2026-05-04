@@ -67,7 +67,7 @@ async function loadSmartDash(ym) {
       sb.from('moves').select('unit_id').eq('type','depart').gte('move_date',ym+'-01').lte('move_date',monthEnd(ym)),
       sb.from('expenses').select('amount').eq('period_month', (ym||'').slice(0,7)+'-01'),
       sb.from('owner_payments').select('amount').eq('period_month', (ym||'').slice(0,7)+'-01'),
-      // Refunded deposits this month by refund_date
+      // Refunded deposits this month by refund_date (JS filter handles 0001-01-01 fallback)
       sb.from('deposits').select('amount,refund_amount,refund_date,apartment,room,tenant_name,deposit_received_date,status')
         .gt('refund_amount', 0)
     ]);
@@ -233,10 +233,6 @@ async function loadCollReport(btn) {
     var unitMap = {};
     units.forEach(function(u){ unitMap[u.id]=u; });
     deps = deps.map(function(d){ var u = d.unit_id ? unitMap[d.unit_id] : null; return Object.assign({}, d, { apartment: d.apartment || (u && u.apartment) || '—', room: d.room || (u && u.room) || '—', tenant_name: d.tenant_name || (u && (u.tenant_name || u.tenant_name2)) || '—' }); });
-
-    // Build unit lookup
-    var unitMap = {};
-    units.forEach(function(u){ unitMap[u.id]=u; });
 
     // Totals
     var totalRent  = pays.reduce(function(s,p){return s+(p.amount||0);},0);
