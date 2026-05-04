@@ -169,8 +169,8 @@ async function loadUnits() {
     if(isHistorical) {
       var { data: histData } = await sb.from('unit_history')
         .select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,start_date,end_date')
-        .lte('start_date', monEndDate)
         .gte('end_date', monStart)
+        .lte('end_date', monEndDate)
         .eq('snapshot_type', 'departure');
 
       if(histData && histData.length) {

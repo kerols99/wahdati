@@ -56,21 +56,28 @@ async function loadMonthly(btn) {
         .gt('refund_amount', 0)
         .gte('refund_date', monStart)
         .lte('refund_date', monEnd),
-      // ══ المستأجرون السابقون الذين غادروا في هذا الشهر أو بعده ══
-      // يشمل: غادر في الشهر + كان ساكن في الشهر وغادر بعده
+      // ══ المستأجرون الذين غادروا في هذا الشهر فقط ══
+      // end_date في نفس الشهر = غادر في هذا الشهر
+      // مش عايزين اللي غادروا في شهر تاني
       sb.from('unit_history').select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,deposit,start_date,end_date,snapshot_type')
-        .lte('start_date', monEnd)
         .gte('end_date', monStart)
+        .lte('end_date', monEnd)
         .eq('snapshot_type', 'departure')
     ]);
     var units        = unitsRes.data||[];
     var histUnits    = histRes ? (histRes.data||[]) : [];
     var pendingMoves = pendingMovesRes ? (pendingMovesRes.data||[]) : [];
 
+    // ══ فلتر المستأجرين الحاليين ══
+    // لو المستأجر دخل بعد الشهر المختار — مش المفروض يظهر في التقرير
+    units = units.filter(function(u) {
+      var unitStartYM = (u.start_date||'').slice(0,7);
+      // لو عنده start_date وكان بعد الشهر المختار — أخرجه
+      if(unitStartYM && unitStartYM > mon) return false;
+      return true;
+    });
+
     // ══ دمج المستأجرين السابقين في قائمة الوحدات ══
-    // المستأجر السابق: غادر في هذا الشهر — لازم يظهر في التقرير
-    // بنضيف صفوف وهمية للوحدات اللي فيها مستأجرين سابقين
-    // بس لو الوحدة مش موجودة في units الحالية (يعني مستأجر جديد دخل مكانه)
     var existingUnitIds = new Set(units.map(function(u){ return u.id; }));
     
     histUnits.forEach(function(h) {
