@@ -60,11 +60,10 @@ async function loadMonthly(btn) {
         .gte('refund_date', monStart)
         .lte('refund_date', monEnd),
       // كل المستأجرين اللي كانوا ساكنين في أي وقت خلال الشهر
-      // start_date <= آخر الشهر AND end_date >= أول الشهر
-      // يشمل: departure + internal_transfer_out
+      // end_date >= أول الشهر بس (مش بنفلتر بـ start_date عشان ممكن يكون null)
       sb.from('unit_history').select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,deposit,start_date,end_date,snapshot_type')
-        .lte('start_date', monEnd)
         .gte('end_date', monStart)
+        .lte('end_date', monNextStart)
     ]);
     var units        = unitsRes.data||[];
     var histUnits    = (histRes && histRes.data) ? histRes.data : [];
