@@ -205,7 +205,7 @@ async function loadMonthly(btn) {
     units.forEach(function(u){
       totalRent     += u.monthly_rent||0;
       var _pk1=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0); totalRentColl += _pk1;
-      totalDeps     += depMap[u.id]||0;    // deposit collected this month
+      if(!u._isFormerTenant) totalDeps += depMap[u.id]||0;  // deposit: current tenants only
     });
     // المُرتجعات في هذا الشهر — query منفصلة بـ refund_date
     var totalRefunds = refundedDeps.reduce(function(s,d){ return s+(Number(d.refund_amount)||0); }, 0);
@@ -224,8 +224,9 @@ async function loadMonthly(btn) {
       apts[apt].units.push({...u, _isNew: isNewForMonth(u.start_date||'')});
       apts[apt].rent     += u.monthly_rent||0;
       var _pk3=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0); apts[apt].rentColl += _pk3;
-      apts[apt].coll += _pk3 + (depMap[u.id]||0);
-      apts[apt].deps     += depMap[u.id]||0;
+      var _dep3 = u._isFormerTenant ? 0 : (depMap[u.id]||0);
+      apts[apt].coll += _pk3 + _dep3;
+      apts[apt].deps += _dep3;
     });
 
     // ── Group by floor ──
@@ -284,7 +285,8 @@ async function loadMonthly(btn) {
         var aptLabel    = (LANG==='ar'?'شقة ':'Apt ')+apt;
 
         var rows = g.units.slice().sort(function(a,b){return Number(a.room)-Number(b.room);}).map(function(u){
-          var dep      = depMap[u.id]||0;
+          // Former tenants don't show deposit — it was counted in the month it was received
+          var dep      = u._isFormerTenant ? 0 : (depMap[u.id]||0);
           var rentPaid=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0);
           var isNew    = u._isNew;
           var showDep  = dep > 0; // show if deposit was received this month (regardless of isNew)
@@ -321,7 +323,7 @@ async function loadMonthly(btn) {
             +'</tr>';
         }).join('');
 
-        var aptDeps = g.units.reduce(function(s,u){return s+(depMap[u.id]||0);},0);
+        var aptDeps = g.units.reduce(function(s,u){return s+(u._isFormerTenant?0:(depMap[u.id]||0));},0);
 
         html += '<div style="margin-bottom:12px;margin-right:8px" data-apt-block>'
           // Apt header
