@@ -43,6 +43,8 @@ async function loadMonthly(btn) {
     var _monDate = new Date(monStart);
     _monDate.setMonth(_monDate.getMonth()+1);
     var monNextStart = _monDate.getFullYear()+'-'+String(_monDate.getMonth()+1).padStart(2,'0')+'-01';
+    // آخر يوم في الشهر الجاي — عشان نشمل internal_transfer_out في الشهر الجاي
+    var monNextMonthEnd = window.monthEnd ? monthEnd(_monDate.getFullYear()+'-'+String(_monDate.getMonth()+1).padStart(2,'0')) : monNextStart.slice(0,7)+'-31';
     var [unitsRes, paysRes, expsRes, ownsRes, pendingMovesRes, depsRes, refundedDepsRes, histRes] = await Promise.all([
       sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,is_vacant,start_date,deposit').eq('is_vacant',false).order('apartment'),
       // ACCRUAL: filter rent by payment_month (when rent is DUE)
@@ -59,11 +61,11 @@ async function loadMonthly(btn) {
         .gt('refund_amount', 0)
         .gte('refund_date', monStart)
         .lte('refund_date', monEnd),
-      // كل المستأجرين اللي كانوا ساكنين في أي وقت خلال الشهر
-      // end_date >= أول الشهر بس (مش بنفلتر بـ start_date عشان ممكن يكون null)
+      // كل المستأجرين اللي end_date في الشهر أو بعده بشهر واحد بس
+      // مش بنفلتر بـ start_date عشان ممكن يكون null
       sb.from('unit_history').select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,deposit,start_date,end_date,snapshot_type')
         .gte('end_date', monStart)
-        .lte('end_date', monNextStart)
+        .lte('end_date', monNextMonthEnd)
     ]);
     var units        = unitsRes.data||[];
     var histUnits    = (histRes && histRes.data) ? histRes.data : [];
