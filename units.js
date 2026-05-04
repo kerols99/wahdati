@@ -743,9 +743,30 @@ async function saveUnit(btn) {
       building_name: (document.getElementById('u-building')&&document.getElementById('u-building').value.trim())||null,
     };
 
-    var { data: existing } = await sb.from('units').select('id').eq('apartment',apt).eq('room',room).maybeSingle();
+    var { data: existing } = await sb.from('units').select('*').eq('apartment',apt).eq('room',room).maybeSingle();
 
     if(existing) {
+      // Archive old tenant before vacating
+      if(isVacant && !existing.is_vacant && existing.tenant_name) {
+        await sb.from('unit_history').insert({
+          unit_id:      existing.id,
+          apartment:    String(existing.apartment),
+          room:         String(existing.room),
+          tenant_name:  existing.tenant_name,
+          tenant_name2: existing.tenant_name2 || null,
+          phone:        existing.phone || null,
+          phone2:       existing.phone2 || null,
+          monthly_rent: parseFloat(existing.monthly_rent||0),
+          rent1:        existing.rent1||0,
+          rent2:        existing.rent2||0,
+          deposit:      parseFloat(existing.deposit||0),
+          persons_count:existing.persons_count||1,
+          start_date:   existing.start_date || (existing.created_at ? existing.created_at.slice(0,10) : null),
+          end_date:     new Date().toISOString().slice(0,10),
+          snapshot_type:'departure',
+          recorded_by:  (ME||{}).id || null
+        });
+      }
       var { error } = await sb.from('units').update(payload).eq('id',existing.id);
       if(error) throw error;
     } else {

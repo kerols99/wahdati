@@ -899,6 +899,28 @@ async function activateReservedUnits() {
       for(var j=0; j<pendingArrivals.length; j++) {
         var mv = pendingArrivals[j];
         if(!mv.unit_id) continue;
+        // Archive old tenant to unit_history before overwriting
+        var { data: existingUnit } = await sb.from('units').select('*').eq('id', mv.unit_id).maybeSingle();
+        if(existingUnit && existingUnit.tenant_name) {
+          await sb.from('unit_history').insert({
+            unit_id:      mv.unit_id,
+            apartment:    String(existingUnit.apartment),
+            room:         String(existingUnit.room),
+            tenant_name:  existingUnit.tenant_name,
+            tenant_name2: existingUnit.tenant_name2 || null,
+            phone:        existingUnit.phone || null,
+            phone2:       existingUnit.phone2 || null,
+            monthly_rent: parseFloat(existingUnit.monthly_rent||0),
+            rent1:        existingUnit.rent1||0,
+            rent2:        existingUnit.rent2||0,
+            deposit:      parseFloat(existingUnit.deposit||0),
+            persons_count:existingUnit.persons_count||1,
+            start_date:   existingUnit.start_date || (existingUnit.created_at ? existingUnit.created_at.slice(0,10) : null),
+            end_date:     mv.new_start_date || mv.move_date || today2,
+            snapshot_type:'departure',
+            recorded_by:  (ME||{}).id || null
+          });
+        }
         // Update unit with new tenant
         await sb.from('units').update({
           tenant_name: mv.new_tenant_name || mv.tenant_name,
@@ -931,6 +953,50 @@ async function activateReservedUnits() {
         var tr = pendingTransfers[k];
         var f = tr.from_snapshot || {};
         var t = tr.to_snapshot || {};
+        // Archive from-unit tenant to unit_history (using stored snapshot)
+        if(f.tenant_name) {
+          await sb.from('unit_history').insert({
+            unit_id:      tr.from_unit_id,
+            apartment:    String(f.apartment||''),
+            room:         String(f.room||''),
+            tenant_name:  f.tenant_name,
+            tenant_name2: f.tenant_name2 || null,
+            phone:        f.phone || null,
+            phone2:       f.phone2 || null,
+            monthly_rent: parseFloat(f.monthly_rent||0),
+            rent1:        f.rent1||0,
+            rent2:        f.rent2||0,
+            deposit:      parseFloat(f.deposit||0),
+            persons_count:f.persons_count||1,
+            start_date:   f.start_date || null,
+            end_date:     tr.transfer_date || today2,
+            notes:        'نقل داخلي تلقائي إلى شقة '+t.apartment+' غرفة '+t.room,
+            snapshot_type:'internal_transfer_out',
+            recorded_by:  (ME||{}).id || null
+          });
+        }
+        // Archive to-unit displaced tenant (if any)
+        if(t.tenant_name) {
+          await sb.from('unit_history').insert({
+            unit_id:      tr.to_unit_id,
+            apartment:    String(t.apartment||''),
+            room:         String(t.room||''),
+            tenant_name:  t.tenant_name,
+            tenant_name2: t.tenant_name2 || null,
+            phone:        t.phone || null,
+            phone2:       t.phone2 || null,
+            monthly_rent: parseFloat(t.monthly_rent||0),
+            rent1:        t.rent1||0,
+            rent2:        t.rent2||0,
+            deposit:      parseFloat(t.deposit||0),
+            persons_count:t.persons_count||1,
+            start_date:   t.start_date || null,
+            end_date:     tr.transfer_date || today2,
+            notes:        'تم استبداله بنقل داخلي — '+f.tenant_name,
+            snapshot_type:'internal_transfer_displaced',
+            recorded_by:  (ME||{}).id || null
+          });
+        }
         // Update toUnit with fromUnit tenant
         await sb.from('units').update({
           tenant_name: f.tenant_name, tenant_name2: f.tenant_name2,
