@@ -10,11 +10,10 @@
 // ══════════════════════════════════════════════════════
 
 function _pickDepositForReport(depRows, monYM) {
-  // Each deposit counted in its deposit_received_date month
-  // RULE: refunded deposits are EXCLUDED (they went back to tenant)
+  // التأمين بيظهر في شهر تحصيله بغض النظر عن حالته
+  // لو اتحصل في مارس واترجع في أبريل — يظهر في تقرير مارس كمحصّل
   var rows = Array.isArray(depRows) ? depRows : [];
   return rows.reduce(function(s, d) {
-    if(d.status === 'refunded') return s;        // مُرتجع → لا يُحتسب
     var rd = String(d.deposit_received_date || '').slice(0, 7);
     return rd === monYM ? s + (Number(d.amount) || 0) : s;
   }, 0);
@@ -60,12 +59,12 @@ async function loadMonthly(btn) {
         .gt('refund_amount', 0)
         .gte('refund_date', monStart)
         .lte('refund_date', monEnd),
-      // المستأجرون الذين غادروا في هذا الشهر أو في أول يوم من الشهر الجاي
-      // مثال: Faraag غادر 1 أبريل = آخر يوم في مارس فعلياً
-      sb.from('unit_history').select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,deposit,start_date,end_date')
+      // كل المستأجرين اللي كانوا ساكنين في أي وقت خلال الشهر
+      // start_date <= آخر الشهر AND end_date >= أول الشهر
+      // يشمل: departure + internal_transfer_out
+      sb.from('unit_history').select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,deposit,start_date,end_date,snapshot_type')
+        .lte('start_date', monEnd)
         .gte('end_date', monStart)
-        .lte('end_date', monNextStart)
-        .eq('snapshot_type','departure')
     ]);
     var units        = unitsRes.data||[];
     var histUnits    = (histRes && histRes.data) ? histRes.data : [];
@@ -78,18 +77,43 @@ async function loadMonthly(btn) {
       return !startYM || startYM <= monYMcheck;
     });
 
-    // أضف المستأجرين السابقين من unit_history (غادروا في هذا الشهر)
+    // أضف المستأجرين السابقين من unit_history
+    // لو المستأجر الحالي دخل بعد الشهر → استبدله بالسابق
     var existingIds = new Set(units.map(function(u){ return u.id; }));
+    
+    // ابني map من unit_id → current tenant start date
+    var currentStartMap = {};
+    units.forEach(function(u){ currentStartMap[u.id] = (u.start_date||'').slice(0,7); });
+
     histUnits.forEach(function(h){
+      var formerUnit = {
+        id: h.unit_id, apartment: String(h.apartment||''), room: String(h.room||''),
+        monthly_rent: h.monthly_rent||0, tenant_name: h.tenant_name||null,
+        tenant_name2: h.tenant_name2||null, is_vacant: false,
+        start_date: h.start_date||null, deposit: h.deposit||0,
+        _isFormerTenant: true, _endDate: h.end_date,
+        _snapshotType: h.snapshot_type||''
+      };
+
       if(!existingIds.has(h.unit_id)) {
-        units.push({
-          id: h.unit_id, apartment: String(h.apartment||''), room: String(h.room||''),
-          monthly_rent: h.monthly_rent||0, tenant_name: h.tenant_name||null,
-          tenant_name2: h.tenant_name2||null, is_vacant: false,
-          start_date: h.start_date||null, deposit: h.deposit||0,
-          _isFormerTenant: true, _endDate: h.end_date
-        });
+        // الوحدة فاضية دلوقتي أو مستأجر تاني — أضف السابق
+        units.push(formerUnit);
         existingIds.add(h.unit_id);
+      } else {
+        // في مستأجر حالي — شوف هل دخل بعد الشهر المختار
+        var currentStartYM = currentStartMap[h.unit_id] || '';
+        if(currentStartYM > monYMcheck) {
+          // المستأجر الحالي دخل بعد الشهر — استبدله بالسابق
+          var idx = units.findIndex(function(u){ return u.id === h.unit_id && !u._isFormerTenant; });
+          if(idx > -1) units[idx] = formerUnit;
+        }
+        // لو في مستأجر قديم ومستأجر جديد في نفس الشهر — أضف السابق كصف إضافي
+        // بس بشرط إن ما اتضافش قبل كده
+        var alreadyAdded = units.some(function(u){ return u._isFormerTenant && u.id === h.unit_id; });
+        if(!alreadyAdded && currentStartYM <= monYMcheck) {
+          formerUnit.id = h.unit_id + '_f';
+          units.push(formerUnit);
+        }
       }
     });
     units.sort(function(a,b){
