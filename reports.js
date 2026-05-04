@@ -66,9 +66,19 @@ async function loadMonthly(btn) {
       sb.from('unit_history').select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,deposit,start_date,end_date,snapshot_type')
         .gte('end_date', monStart)
         .lte('end_date', monNextMonthEnd)
+
     ]);
     var units        = unitsRes.data||[];
     var histUnits    = (histRes && histRes.data) ? histRes.data : [];
+    // Keep only records where tenant was active during the month (start_date <= monEnd or null)
+    histUnits = histUnits.filter(function(h){ return !h.start_date || h.start_date <= monEnd; });
+    // Dedup by unit_id: keep the record with the most recent end_date (tenant closest to this month)
+    var _histMap = {};
+    histUnits.forEach(function(h){
+      var prev = _histMap[h.unit_id];
+      if(!prev || h.end_date > prev.end_date) _histMap[h.unit_id] = h;
+    });
+    histUnits = Object.values(_histMap);
     var pendingMoves = pendingMovesRes ? (pendingMovesRes.data||[]) : [];
 
     // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار
@@ -333,7 +343,7 @@ async function loadMonthly(btn) {
           +'<td style="padding:6px 8px;font-weight:700;font-size:.75rem;color:var(--accent)">'+aptDeps+'</td>'
           +'<td style="padding:6px 8px;font-weight:700;font-size:.75rem;color:var(--green)">'+aptRentColl+'</td>'
           +'<td style="padding:6px 8px;font-weight:800;font-size:.75rem;color:var(--green);border-bottom:none">'+(aptDeps>0?(aptRentColl+aptDeps):'—')+'</td>'
-          +'<td style="padding:6px 8px;font-weight:700;font-size:.75rem;color:var(--red)">'+(g.rent-aptRentColl)+'</td>'
+          +'<td style="padding:6px 8px;font-weight:700;font-size:.75rem;color:var(--red)">'+Math.max(0,g.rent-aptRentColl)+'</td>'
           +'<td></td></tr></tfoot>'
           +'</table></div></div>';
       });
