@@ -12,10 +12,16 @@
 function _pickDepositForReport(depRows, monYM) {
   // التأمين بيظهر في شهر تحصيله بغض النظر عن حالته
   // لو اتحصل في مارس واترجع في أبريل — يظهر في تقرير مارس كمحصّل
+  // استثناء: لو deposit_received_date == refund_date (نفس اليوم) → execute_departure غلط حدّثها
   var rows = Array.isArray(depRows) ? depRows : [];
   return rows.reduce(function(s, d) {
     var rd = String(d.deposit_received_date || '').slice(0, 7);
-    return rd === monYM ? s + (Number(d.amount) || 0) : s;
+    if(rd !== monYM) return s;
+    // Skip: departure process wrongly set deposit_received_date = refund_date
+    var rdFull  = String(d.deposit_received_date || '').slice(0, 10);
+    var refFull = String(d.refund_date || '').slice(0, 10);
+    if(rdFull && refFull && rdFull === refFull && Number(d.refund_amount) > 0) return s;
+    return s + (Number(d.amount) || 0);
   }, 0);
 }
 
@@ -54,7 +60,7 @@ async function loadMonthly(btn) {
       // Pending future bookings for this month
       sb.from('moves').select('unit_id,new_tenant_name,tenant_name,new_start_date,move_date,new_rent,status').eq('type','arrive').eq('status','pending'),
       // Deposits received this month
-      sb.from('deposits').select('unit_id,amount,deposit_received_date,status,refund_date,tenant_name,apartment,room')
+      sb.from('deposits').select('unit_id,amount,refund_amount,deposit_received_date,status,refund_date,tenant_name,apartment,room')
         .gte('deposit_received_date', monStart).lte('deposit_received_date', monEnd),
       // Refunded deposits this month — by refund_date
       sb.from('deposits').select('unit_id,amount,refund_amount,refund_date,tenant_name,apartment,room')
