@@ -26,13 +26,11 @@ function _pickDepositForReport(depRows, monYM) {
 // ══════════════════════════════════════════════════════
 
 async function loadMonthly(btn) {
-  // Auto-fill current month if empty
+  // استخدام الشهر المختار من الـ selector
   var rpmEl = document.getElementById('rpm');
-  if(rpmEl && !rpmEl.value) {
-    var now = new Date();
-    rpmEl.value = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  }
-  var mon = rpmEl ? rpmEl.value : '';
+  var activeYM = window.getActiveMonth ? getActiveMonth() : '';
+  if(rpmEl) rpmEl.value = activeYM;
+  var mon = activeYM || (rpmEl ? rpmEl.value : '');
   if(!mon){toast(LANG==='ar'?'اختر الشهر':'Choose month','err');return;}
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   try{
