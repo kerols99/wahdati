@@ -338,8 +338,9 @@ async function loadMonthly(btn) {
         var aptLabel    = (LANG==='ar'?'شقة ':'Apt ')+apt;
 
         var rows = g.units.slice().sort(function(a,b){return Number(a.room)-Number(b.room);}).map(function(u){
-          // Former tenants don't show deposit — it was counted in the month it was received
-          var dep      = u._isFormerTenant ? 0 : (depMap[u.id]||0);
+          // Former tenants: look up deposit by original unit_id (their id is modified with _f_ suffix)
+          var _depLookupId = u._isFormerTenant ? (String(u.id).split('_f')[0]) : u.id;
+          var dep      = _pickDepositForReport(depRawMap[_depLookupId]||[], monYM);
           var rentPaid=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0);
           var isNew    = u._isNew;
           var showDep  = dep > 0; // show if deposit was received this month (regardless of isNew)
