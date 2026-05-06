@@ -178,6 +178,27 @@ async function loadMonthly(btn) {
       paidMapByRoom[_rk] = (paidMapByRoom[_rk]||0)+(p.amount||0);
     });
 
+    // ── دفعات لوحدات شاغرة (مستأجر سابق عليه متأخرات) ──
+    // الوحدة الشاغرة مش موجودة في units — نضيفها كصف خاص
+    var coveredRooms = {};
+    units.forEach(function(u){ coveredRooms[String(u.apartment)+'-'+String(u.room)] = true; });
+    pays.forEach(function(p){
+      if(!p.apartment || !p.room) return;
+      var _rk = String(p.apartment)+'-'+String(p.room);
+      if(coveredRooms[_rk]) return; // already in report
+      coveredRooms[_rk] = true;
+      units.push({
+        id: p.unit_id || _rk,
+        apartment: String(p.apartment),
+        room: String(p.room),
+        monthly_rent: 0,
+        tenant_name: p.tenant_name || null,
+        is_vacant: true,
+        _isVacantPaid: true,
+        start_date: null
+      });
+    });
+
     // depRawMap: all deposit rows per unit
     var depRawMap = {};
     deps.forEach(function(d){
@@ -296,9 +317,9 @@ async function loadMonthly(btn) {
           var rentPaid=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0);
           var isNew    = u._isNew;
           var showDep  = dep > 0; // show if deposit was received this month (regardless of isNew)
-          var rem      = Math.max(0,(u.monthly_rent||0)-rentPaid);
-          var fullPaid = !isNew && rentPaid>=(u.monthly_rent||0)&&(u.monthly_rent||0)>0;
-          var partPaid = !isNew && !fullPaid && rentPaid>0;
+          var rem      = u._isVacantPaid ? 0 : Math.max(0,(u.monthly_rent||0)-rentPaid);
+          var fullPaid = u._isVacantPaid ? rentPaid>0 : (!isNew && rentPaid>=(u.monthly_rent||0)&&(u.monthly_rent||0)>0);
+          var partPaid = !u._isVacantPaid && !isNew && !fullPaid && rentPaid>0;
           // Status badge
           var stBg = isNew?'var(--accent)':fullPaid?'var(--green)':partPaid?'var(--amber)':'var(--red)';
           var stTx = isNew?(dep>0?'🆕':'🆕'):fullPaid?'✅':partPaid?'⚠️':'❌';

@@ -235,7 +235,7 @@ function goPanel(name) {
     var _ym    = window.getActiveMonth    ? getActiveMonth()    : (new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0'));
     var _today = window.getActivePaymentDate ? getActivePaymentDate() : new Date().toISOString().slice(0,10);
     var _year  = _ym.split('-')[0];
-    ['r-month','rcoll-month','rdep-month','e-month','o-month','pay-month','exp-month','own-month'].forEach(function(mid){
+    ['r-month','rcoll-month','rdep-month','e-month','o-month','pay-month','exp-month','own-month','rpm'].forEach(function(mid){
       var el = document.getElementById(mid);
       if(el) el.value = _ym;
     });
