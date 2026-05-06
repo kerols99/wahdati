@@ -84,7 +84,7 @@ async function loadMonthly(btn) {
       var prev = _histMap[h.unit_id];
       if(!prev || h.end_date > prev.end_date) _histMap[h.unit_id] = h;
     });
-    histUnits = Object.values(_histMap);
+    histUnits = Object.keys(_histMap).map(function(k){ return _histMap[k]; });
     var pendingMoves = pendingMovesRes ? (pendingMovesRes.data||[]) : [];
 
     // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار
@@ -1375,7 +1375,7 @@ async function loadAptCompare(btn) {
     });
 
     // Sort by collected descending
-    var sorted = Object.values(aptData).sort(function(a,b){ return b.collected - a.collected; });
+    var sorted = Object.keys(aptData).map(function(k){ return aptData[k]; }).sort(function(a,b){ return b.collected - a.collected; });
     var maxColl = sorted.length ? sorted[0].collected : 1;
 
     var html = '<div style="font-size:.68rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">🏆 أداء الشقق — '+year+'</div>';
