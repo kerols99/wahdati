@@ -72,35 +72,35 @@ async function loadMonthly(btn) {
     ]);
     var allUnits     = unitsRes.data||[];
     var histUnits    = (histRes && histRes.data) ? histRes.data : [];
-    // Keep only records where tenant was active during the month (start_date <= monEnd or null)
+    // فلتر: المستأجر كان موجود في الشهر (start_date <= monEnd)
     histUnits = histUnits.filter(function(h){ return !h.start_date || h.start_date <= monEnd; });
-    // Dedup by unit_id: keep the record with the most recent end_date (tenant closest to this month)
-    var _histMap = {};
-    histUnits.forEach(function(h){
-      var prev = _histMap[h.unit_id];
-      if(!prev || h.end_date > prev.end_date) _histMap[h.unit_id] = h;
-    });
-    histUnits = Object.keys(_histMap).map(function(k){ return _histMap[k]; });
+    // رتّب من الأحدث للأقدم
+    histUnits.sort(function(a,b){ return (b.end_date||'') > (a.end_date||'') ? 1 : -1; });
 
     var pendingMoves = pendingMovesRes ? (pendingMovesRes.data||[]) : [];
 
-    // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار، وأخرج الشاغرين من القائمة الرئيسية
     var monYMcheck = (mon||'').slice(0,7);
+    var now = new Date();
+    var currentYM = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+
+    // ابدأ بالمستأجرين الحاليين اللي دخلوا في الشهر أو قبله
     var units = allUnits.filter(function(u){
       if(u.is_vacant) return false;
       var startYM = (u.start_date||'').slice(0,7);
       return !startYM || startYM <= monYMcheck;
     });
 
-    // أضف المستأجرين السابقين من unit_history
-    // لو المستأجر الحالي دخل بعد الشهر → استبدله بالسابق
     var existingIds = new Set(units.map(function(u){ return u.id; }));
-    
-    // ابني map من unit_id → current tenant start date
     var currentStartMap = {};
     units.forEach(function(u){ currentStartMap[u.id] = (u.start_date||'').slice(0,7); });
 
+    // سجّل كل الـ histKeys اللي أضفناهم عشان نتجنب التكرار
+    var addedHistKeys = new Set();
+
     histUnits.forEach(function(h){
+      var uniqueKey = String(h.unit_id)+'_'+String(h.end_date||'');
+      if(addedHistKeys.has(uniqueKey)) return;
+
       var formerUnit = {
         id: h.unit_id, apartment: String(h.apartment||''), room: String(h.room||''),
         monthly_rent: h.monthly_rent||0, tenant_name: h.tenant_name||null,
@@ -110,34 +110,43 @@ async function loadMonthly(btn) {
         _snapshotType: h.snapshot_type||''
       };
 
+      // هل السجل ده كان نشط في الشهر المختار؟
+      // نشط = دخل قبل أو في الشهر، وخرج في الشهر أو بعده بشهر واحد
+      var endDateYM = (h.end_date||'').slice(0,7);
+      var startDateYM = (h.start_date||'').slice(0,7);
+      // لو خرج قبل الشهر — تجاهله
+      if(h.end_date && endDateYM < monYMcheck) return;
+
       if(!existingIds.has(h.unit_id)) {
-        // الوحدة فاضية دلوقتي — أضف السابق
+        // وحدة فاضية دلوقتي أو مستأجرها اتغير — أضف السابق
+        addedHistKeys.add(uniqueKey);
         units.push(formerUnit);
         existingIds.add(h.unit_id);
       } else {
         var currentStartYM = currentStartMap[h.unit_id] || '';
+
         if(currentStartYM > monYMcheck) {
-          // المستأجر الحالي دخل بعد الشهر — استبدله بالسابق
+          // المستأجر الحالي دخل بعد الشهر — استبدله بالسابق في التقرير
           var idx = units.findIndex(function(u){ return u.id === h.unit_id && !u._isFormerTenant; });
-          if(idx > -1) units[idx] = formerUnit;
-        }
-        // لو في مستأجر قديم ومستأجر جديد في نفس الشهر — أضف السابق كصف إضافي
-        // بس بشرط إن ما اتضافش قبل كده
-        var alreadyAdded = units.some(function(u){ return u._isFormerTenant && u.id === h.unit_id; });
-        var currentUnit = units.find(function(u){ return u.id === h.unit_id && !u._isFormerTenant; });
-        var samePersonShown = currentUnit && currentUnit.tenant_name && currentUnit.tenant_name === h.tenant_name;
-        if(!alreadyAdded && !samePersonShown && currentStartYM <= monYMcheck) {
-          formerUnit.id = h.unit_id + '_f';
-          units.push(formerUnit);
-        // لو المستأجر الحالي دخل في نفس الشهر أو قبله
-        // والسابق غادر في نفس الشهر — أضفه كصف منفصل (مثلاً دخل وخرج في نفس الشهر)
-        } else {
-          var alreadyAdded2 = units.some(function(u){ return u._isFormerTenant && String(u.apartment)+'-'+String(u.room) === String(h.apartment)+'-'+String(h.room); });
-          if(!alreadyAdded2) {
+          if(idx > -1) {
+            addedHistKeys.add(uniqueKey);
+            units[idx] = formerUnit;
+            currentStartMap[h.unit_id] = startDateYM;
+          }
+        } else if(currentStartYM === monYMcheck) {
+          // المستأجر الجديد دخل في نفس الشهر — السابق خرج في نفس الشهر أو أول الشهر اللي بعده
+          // أضف السابق كصف منفصل
+          var currentUnit = units.find(function(u){ return u.id === h.unit_id && !u._isFormerTenant; });
+          var samePerson = currentUnit && currentUnit.tenant_name === h.tenant_name;
+          if(!samePerson) {
+            addedHistKeys.add(uniqueKey);
             formerUnit.id = h.unit_id + '_f_' + String(h.end_date||'').slice(0,10);
             units.push(formerUnit);
           }
         }
+        // لو currentStartYM < monYMcheck — المستأجر الحالي دخل قبل الشهر
+        // والسجل في unit_history ده لمستأجر خرج خلال الشهر أو أول الشهر اللي بعده
+        // يعني نفس المستأجر الحالي هو اللي خرج — تجاهله (مش محتاج صف إضافي)
       }
     });
     units.sort(function(a,b){
