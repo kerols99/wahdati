@@ -12,10 +12,16 @@
 function _pickDepositForReport(depRows, monYM) {
   // التأمين بيظهر في شهر تحصيله بغض النظر عن حالته
   // لو اتحصل في مارس واترجع في أبريل — يظهر في تقرير مارس كمحصّل
+  // استثناء: لو deposit_received_date == refund_date (نفس اليوم) → execute_departure غلط حدّثها
   var rows = Array.isArray(depRows) ? depRows : [];
   return rows.reduce(function(s, d) {
     var rd = String(d.deposit_received_date || '').slice(0, 7);
-    return rd === monYM ? s + (Number(d.amount) || 0) : s;
+    if(rd !== monYM) return s;
+    // Skip: departure process wrongly set deposit_received_date = refund_date
+    var rdFull  = String(d.deposit_received_date || '').slice(0, 10);
+    var refFull = String(d.refund_date || '').slice(0, 10);
+    if(rdFull && refFull && rdFull === refFull && Number(d.refund_amount) > 0) return s;
+    return s + (Number(d.amount) || 0);
   }, 0);
 }
 
@@ -44,7 +50,7 @@ async function loadMonthly(btn) {
     // آخر يوم في الشهر الجاي — عشان نشمل internal_transfer_out في الشهر الجاي
     var monNextMonthEnd = window.monthEnd ? monthEnd(_monDate.getFullYear()+'-'+String(_monDate.getMonth()+1).padStart(2,'0')) : monNextStart.slice(0,7)+'-31';
     var [unitsRes, paysRes, expsRes, ownsRes, pendingMovesRes, depsRes, refundedDepsRes, histRes] = await Promise.all([
-      sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,is_vacant,start_date,deposit').eq('is_vacant',false).order('apartment'),
+      sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,is_vacant,start_date,deposit').order('apartment'),
       // ACCRUAL: filter rent by payment_month (when rent is DUE)
       sb.from('rent_payments').select('unit_id,amount,apartment,room,payment_month,payment_date,payment_method,notes,tenant_num').like('payment_month', mon + '%'),
       sb.from('expenses').select('amount,category,description,receipt_no,period_month').eq('period_month', monStart),
@@ -52,7 +58,7 @@ async function loadMonthly(btn) {
       // Pending future bookings for this month
       sb.from('moves').select('unit_id,new_tenant_name,tenant_name,new_start_date,move_date,new_rent,status').eq('type','arrive').eq('status','pending'),
       // Deposits received this month
-      sb.from('deposits').select('unit_id,amount,deposit_received_date,status,refund_date,tenant_name,apartment,room')
+      sb.from('deposits').select('unit_id,amount,refund_amount,deposit_received_date,status,refund_date,tenant_name,apartment,room')
         .gte('deposit_received_date', monStart).lte('deposit_received_date', monEnd),
       // Refunded deposits this month — by refund_date
       sb.from('deposits').select('unit_id,amount,refund_amount,refund_date,tenant_name,apartment,room')
@@ -65,13 +71,26 @@ async function loadMonthly(btn) {
         .gte('end_date', monStart)
         .lte('end_date', monNextMonthEnd)
     ]);
-    var units        = unitsRes.data||[];
+    var allUnits     = unitsRes.data||[];
     var histUnits    = (histRes && histRes.data) ? histRes.data : [];
+ claude/rental-payment-tracker-OYCRU
+    // Keep only records where tenant was active during the month (start_date <= monEnd or null)
+    histUnits = histUnits.filter(function(h){ return !h.start_date || h.start_date <= monEnd; });
+    // Dedup by unit_id: keep the record with the most recent end_date (tenant closest to this month)
+    var _histMap = {};
+    histUnits.forEach(function(h){
+      var prev = _histMap[h.unit_id];
+      if(!prev || h.end_date > prev.end_date) _histMap[h.unit_id] = h;
+    });
+    histUnits = Object.keys(_histMap).map(function(k){ return _histMap[k]; });
+
+ main
     var pendingMoves = pendingMovesRes ? (pendingMovesRes.data||[]) : [];
 
-    // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار
+    // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار، وأخرج الشاغرين من القائمة الرئيسية
     var monYMcheck = (mon||'').slice(0,7);
-    units = units.filter(function(u){
+    var units = allUnits.filter(function(u){
+      if(u.is_vacant) return false;
       var startYM = (u.start_date||'').slice(0,7);
       return !startYM || startYM <= monYMcheck;
     });
@@ -105,6 +124,16 @@ async function loadMonthly(btn) {
           var idx = units.findIndex(function(u){ return u.id === h.unit_id && !u._isFormerTenant; });
           if(idx > -1) units[idx] = formerUnit;
         }
+claude/rental-payment-tracker-OYCRU
+        // لو في مستأجر قديم ومستأجر جديد في نفس الشهر — أضف السابق كصف إضافي
+        // بس بشرط إن ما اتضافش قبل كده
+        var alreadyAdded = units.some(function(u){ return u._isFormerTenant && u.id === h.unit_id; });
+        var currentUnit = units.find(function(u){ return u.id === h.unit_id && !u._isFormerTenant; });
+        var samePersonShown = currentUnit && currentUnit.tenant_name && currentUnit.tenant_name === h.tenant_name;
+        if(!alreadyAdded && !samePersonShown && currentStartYM <= monYMcheck) {
+          formerUnit.id = h.unit_id + '_f';
+          units.push(formerUnit);
+
         // لو المستأجر الحالي دخل في نفس الشهر أو قبله
         // والسابق غادر في نفس الشهر — أضفه كصف منفصل (مثلاً دخل وخرج في نفس الشهر)
         else {
@@ -113,6 +142,7 @@ async function loadMonthly(btn) {
             formerUnit.id = h.unit_id + '_f_' + String(h.end_date||'').slice(0,10);
             units.push(formerUnit);
           }
+ main
         }
       }
     });
@@ -161,6 +191,36 @@ async function loadMonthly(btn) {
       paidMapByRoom[_rk] = (paidMapByRoom[_rk]||0)+(p.amount||0);
     });
 
+    // ── دفعات لوحدات شاغرة (مستأجر سابق عليه متأخرات) ──
+    // الوحدة الشاغرة مش موجودة في units — نضيفها كصف خاص
+    // Build unit_id → {apartment, room, tenant_name} map from ALL units (including vacant) for resolving null apt/room on payments
+    var unitIdToAptRoom = {};
+    allUnits.forEach(function(u){ if(u.id) unitIdToAptRoom[String(u.id)] = {apartment: String(u.apartment||''), room: String(u.room||''), tenant_name: u.tenant_name||null}; });
+    var coveredRooms = {};
+    units.forEach(function(u){ coveredRooms[String(u.apartment)+'-'+String(u.room)] = true; });
+    pays.forEach(function(p){
+      // If payment is missing apartment/room, try to resolve via unit_id
+      var apt = p.apartment, rm = p.room;
+      if((!apt || !rm) && p.unit_id) {
+        var resolved = unitIdToAptRoom[String(p.unit_id)];
+        if(resolved) { apt = resolved.apartment; rm = resolved.room; }
+      }
+      if(!apt || !rm) return;
+      var _rk = String(apt)+'-'+String(rm);
+      if(coveredRooms[_rk]) return; // already in report
+      coveredRooms[_rk] = true;
+      units.push({
+        id: p.unit_id || _rk,
+        apartment: String(apt),
+        room: String(rm),
+        monthly_rent: 0,
+        tenant_name: p.tenant_name || (unitIdToAptRoom[String(p.unit_id)] && unitIdToAptRoom[String(p.unit_id)].tenant_name) || null,
+        is_vacant: true,
+        _isVacantPaid: true,
+        start_date: null
+      });
+    });
+
     // depRawMap: all deposit rows per unit
     var depRawMap = {};
     deps.forEach(function(d){
@@ -194,7 +254,7 @@ async function loadMonthly(btn) {
     units.forEach(function(u){
       totalRent     += u.monthly_rent||0;
       var _pk1=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0); totalRentColl += _pk1;
-      totalDeps     += depMap[u.id]||0;    // deposit collected this month
+      if(!u._isFormerTenant) totalDeps += depMap[u.id]||0;  // deposit: current tenants only
     });
     // المُرتجعات في هذا الشهر — query منفصلة بـ refund_date
     var totalRefunds = refundedDeps.reduce(function(s,d){ return s+(Number(d.refund_amount)||0); }, 0);
@@ -214,8 +274,9 @@ async function loadMonthly(btn) {
       apts[apt].units.push({...u, _isNew: isNewForMonth(u.start_date||'')});
       apts[apt].rent     += u.monthly_rent||0;
       var _pk3=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0); apts[apt].rentColl += _pk3;
-      apts[apt].coll += _pk3 + (depMap[u.id]||0);
-      apts[apt].deps     += depMap[u.id]||0;
+      var _dep3 = u._isFormerTenant ? 0 : (depMap[u.id]||0);
+      apts[apt].coll += _pk3 + _dep3;
+      apts[apt].deps += _dep3;
     });
 
     // ── Group by floor ──
@@ -274,13 +335,14 @@ async function loadMonthly(btn) {
         var aptLabel    = (LANG==='ar'?'شقة ':'Apt ')+apt;
 
         var rows = g.units.slice().sort(function(a,b){return Number(a.room)-Number(b.room);}).map(function(u){
-          var dep      = depMap[u.id]||0;
+          // Former tenants don't show deposit — it was counted in the month it was received
+          var dep      = u._isFormerTenant ? 0 : (depMap[u.id]||0);
           var rentPaid=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0);
           var isNew    = u._isNew;
           var showDep  = dep > 0; // show if deposit was received this month (regardless of isNew)
-          var rem      = Math.max(0,(u.monthly_rent||0)-rentPaid);
-          var fullPaid = !isNew && rentPaid>=(u.monthly_rent||0)&&(u.monthly_rent||0)>0;
-          var partPaid = !isNew && !fullPaid && rentPaid>0;
+          var rem      = u._isVacantPaid ? 0 : Math.max(0,(u.monthly_rent||0)-rentPaid);
+          var fullPaid = u._isVacantPaid ? rentPaid>0 : (!isNew && rentPaid>=(u.monthly_rent||0)&&(u.monthly_rent||0)>0);
+          var partPaid = !u._isVacantPaid && !isNew && !fullPaid && rentPaid>0;
           // Status badge
           var stBg = isNew?'var(--accent)':fullPaid?'var(--green)':partPaid?'var(--amber)':'var(--red)';
           var stTx = isNew?(dep>0?'🆕':'🆕'):fullPaid?'✅':partPaid?'⚠️':'❌';
@@ -311,7 +373,7 @@ async function loadMonthly(btn) {
             +'</tr>';
         }).join('');
 
-        var aptDeps = g.units.reduce(function(s,u){return s+(depMap[u.id]||0);},0);
+        var aptDeps = g.units.reduce(function(s,u){return s+(u._isFormerTenant?0:(depMap[u.id]||0));},0);
 
         html += '<div style="margin-bottom:12px;margin-right:8px" data-apt-block>'
           // Apt header
@@ -1357,7 +1419,7 @@ async function loadAptCompare(btn) {
     });
 
     // Sort by collected descending
-    var sorted = Object.values(aptData).sort(function(a,b){ return b.collected - a.collected; });
+    var sorted = Object.keys(aptData).map(function(k){ return aptData[k]; }).sort(function(a,b){ return b.collected - a.collected; });
     var maxColl = sorted.length ? sorted[0].collected : 1;
 
     var html = '<div style="font-size:.68rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">🏆 أداء الشقق — '+year+'</div>';
