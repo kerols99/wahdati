@@ -574,18 +574,56 @@ async function hasDepartureForUnit(unitId){
 
 async function quickMarkDepartureFromUnit(unit){
   if(!unit || !unit.id) return;
-  try {
-    if(await hasDepartureForUnit(unit.id)){ toast(t('alreadyMarkedDepart'),'err'); return; }
-    var payload = {
-      type:'depart', unit_id: unit.id, tenant_name: unit.tenant_name || '', apartment: String(unit.apartment), room: String(unit.room),
-      move_date: endOfCurrentMonthISO(), phone: unit.phone || null, persons_count: parseInt(unit.persons_count,10)||1,
-      notes: LANG==='ar' ? 'مغادر آخر الشهر' : 'Leaving at month end', created_by:(ME||{}).id || null
-    };
-    var ins = await sb.from('moves').insert(payload);
-    if(ins.error) throw ins.error;
-    toast(t('markedDepartEndMonth'),'ok');
-    if(window.loadMovesList) loadMovesList('depart');
-  } catch(e) { toast((LANG==='ar'?'خطأ: ':'Error: ')+e.message,'err'); }
+  if(await hasDepartureForUnit(unit.id)){ toast(t('alreadyMarkedDepart'),'err'); return; }
+
+  var existing = document.getElementById('quick-depart-modal');
+  if(existing) existing.remove();
+
+  var defaultDate = endOfCurrentMonthISO();
+  var modal = document.createElement('div');
+  modal.id = 'quick-depart-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:#0009;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = '<div style="background:var(--surf);border-radius:18px;padding:24px;width:100%;max-width:340px;box-shadow:0 8px 32px #0006">'
+    +'<div style="font-weight:900;font-size:1rem;margin-bottom:16px;text-align:center">📤 '+(LANG==='ar'?'تسجيل مغادرة':'Register Departure')+'</div>'
+    +'<div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">'+(LANG==='ar'?'المستأجر':'Tenant')+'</div>'
+    +'<div style="font-weight:700;margin-bottom:16px">'+esc((unit.tenant_name||'')+' — شقة '+unit.apartment+' غرفة '+unit.room)+'</div>'
+    +'<div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">'+(LANG==='ar'?'تاريخ المغادرة':'Departure Date')+'</div>'
+    +'<input id="qd-date" type="date" class="inp" value="'+defaultDate+'" style="width:100%;margin-bottom:20px">'
+    +'<div style="display:flex;gap:10px">'
+    +'<button id="qd-cancel" class="btn" style="flex:1;background:var(--surf2)">'+(LANG==='ar'?'إلغاء':'Cancel')+'</button>'
+    +'<button id="qd-save" class="btn bp" style="flex:2">📤 '+(LANG==='ar'?'تسجيل المغادرة':'Save Departure')+'</button>'
+    +'</div>'
+    +'</div>';
+  document.body.appendChild(modal);
+
+  document.getElementById('qd-cancel').onclick = function(){ modal.remove(); };
+  modal.addEventListener('click', function(e){ if(e.target===modal) modal.remove(); });
+
+  document.getElementById('qd-save').onclick = async function(){
+    var dateVal = document.getElementById('qd-date').value;
+    if(!dateVal){ toast(LANG==='ar'?'اختر تاريخ المغادرة':'Choose departure date','err'); return; }
+    var btn = this; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
+    try {
+      var payload = {
+        type:'depart', unit_id: unit.id,
+        tenant_name: unit.tenant_name || '',
+        apartment: String(unit.apartment), room: String(unit.room),
+        move_date: dateVal,
+        phone: unit.phone || null,
+        persons_count: parseInt(unit.persons_count,10)||1,
+        notes: LANG==='ar' ? 'مغادر '+dateVal : 'Leaving '+dateVal,
+        created_by: (ME||{}).id || null
+      };
+      var ins = await sb.from('moves').insert(payload);
+      if(ins.error) throw ins.error;
+      toast(t('markedDepartEndMonth'),'ok');
+      modal.remove();
+      if(window.loadMovesList) loadMovesList('depart');
+    } catch(e) {
+      toast((LANG==='ar'?'خطأ: ':'Error: ')+e.message,'err');
+      btn.disabled=false; btn.innerHTML='📤 '+(LANG==='ar'?'تسجيل المغادرة':'Save Departure');
+    }
+  };
 }
 window.quickMarkDepartureFromUnit = quickMarkDepartureFromUnit;
 
