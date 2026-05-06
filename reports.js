@@ -50,7 +50,7 @@ async function loadMonthly(btn) {
     // آخر يوم في الشهر الجاي — عشان نشمل internal_transfer_out في الشهر الجاي
     var monNextMonthEnd = window.monthEnd ? monthEnd(_monDate.getFullYear()+'-'+String(_monDate.getMonth()+1).padStart(2,'0')) : monNextStart.slice(0,7)+'-31';
     var [unitsRes, paysRes, expsRes, ownsRes, pendingMovesRes, depsRes, refundedDepsRes, histRes] = await Promise.all([
-      sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,is_vacant,start_date,deposit').order('apartment'),
+      sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,is_vacant,start_date,deposit').eq('is_vacant',false).order('apartment'),
       // ACCRUAL: filter rent by payment_month (when rent is DUE)
       sb.from('rent_payments').select('unit_id,amount,apartment,room,payment_month,payment_date,payment_method,notes,tenant_num').like('payment_month', mon + '%'),
       sb.from('expenses').select('amount,category,description,receipt_no,period_month').eq('period_month', monStart),
@@ -71,7 +71,7 @@ async function loadMonthly(btn) {
         .gte('end_date', monStart)
         .lte('end_date', monNextMonthEnd)
     ]);
-    var allUnits     = unitsRes.data||[];
+    var allUnits = unitsRes.data||[];  // non-vacant units only (is_vacant=false)
     var histUnits    = (histRes && histRes.data) ? histRes.data : [];
  claude/rental-payment-tracker-OYCRU
     // Keep only records where tenant was active during the month (start_date <= monEnd or null)
@@ -87,10 +87,9 @@ async function loadMonthly(btn) {
  main
     var pendingMoves = pendingMovesRes ? (pendingMovesRes.data||[]) : [];
 
-    // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار، وأخرج الشاغرين من القائمة الرئيسية
+    // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار
     var monYMcheck = (mon||'').slice(0,7);
     var units = allUnits.filter(function(u){
-      if(u.is_vacant) return false;
       var startYM = (u.start_date||'').slice(0,7);
       return !startYM || startYM <= monYMcheck;
     });
@@ -193,11 +192,26 @@ claude/rental-payment-tracker-OYCRU
 
     // ── دفعات لوحدات شاغرة (مستأجر سابق عليه متأخرات) ──
     // الوحدة الشاغرة مش موجودة في units — نضيفها كصف خاص
-    // Build unit_id → {apartment, room, tenant_name} map from ALL units (including vacant) for resolving null apt/room on payments
+    // Build unit_id → {apartment, room} map from current non-vacant units
     var unitIdToAptRoom = {};
     allUnits.forEach(function(u){ if(u.id) unitIdToAptRoom[String(u.id)] = {apartment: String(u.apartment||''), room: String(u.room||''), tenant_name: u.tenant_name||null}; });
     var coveredRooms = {};
     units.forEach(function(u){ coveredRooms[String(u.apartment)+'-'+String(u.room)] = true; });
+    // Collect unit_ids that need vacant-unit lookup (payment has unit_id but null apt/room, not in current units)
+    var missingUnitIds = [];
+    pays.forEach(function(p){
+      if(p.apartment && p.room) return; // apt/room already in payment
+      if(!p.unit_id) return;
+      if(unitIdToAptRoom[String(p.unit_id)]) return; // already in non-vacant units
+      if(missingUnitIds.indexOf(p.unit_id) === -1) missingUnitIds.push(p.unit_id);
+    });
+    // Fetch vacant units that have payments (if any)
+    if(missingUnitIds.length > 0) {
+      var vacRes = await sb.from('units').select('id,apartment,room,tenant_name').in('id', missingUnitIds);
+      if(vacRes && vacRes.data) {
+        vacRes.data.forEach(function(u){ if(u.id) unitIdToAptRoom[String(u.id)] = {apartment: String(u.apartment||''), room: String(u.room||''), tenant_name: u.tenant_name||null}; });
+      }
+    }
     pays.forEach(function(p){
       // If payment is missing apartment/room, try to resolve via unit_id
       var apt = p.apartment, rm = p.room;
