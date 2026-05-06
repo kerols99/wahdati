@@ -52,7 +52,7 @@ async function loadMonthly(btn) {
     // آخر يوم في الشهر الجاي — عشان نشمل internal_transfer_out في الشهر الجاي
     var monNextMonthEnd = window.monthEnd ? monthEnd(_monDate.getFullYear()+'-'+String(_monDate.getMonth()+1).padStart(2,'0')) : monNextStart.slice(0,7)+'-31';
     var [unitsRes, paysRes, expsRes, ownsRes, pendingMovesRes, depsRes, refundedDepsRes, histRes] = await Promise.all([
-      sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,is_vacant,start_date,deposit').eq('is_vacant',false).order('apartment'),
+      sb.from('units').select('id,apartment,room,monthly_rent,tenant_name,tenant_name2,is_vacant,start_date,deposit').order('apartment'),
       // ACCRUAL: filter rent by payment_month (when rent is DUE)
       sb.from('rent_payments').select('unit_id,amount,apartment,room,payment_month,payment_date,payment_method,notes,tenant_num').like('payment_month', mon + '%'),
       sb.from('expenses').select('amount,category,description,receipt_no,period_month').eq('period_month', monStart),
@@ -74,7 +74,7 @@ async function loadMonthly(btn) {
         .lte('end_date', monNextMonthEnd)
 
     ]);
-    var units        = unitsRes.data||[];
+    var allUnits     = unitsRes.data||[];
     var histUnits    = (histRes && histRes.data) ? histRes.data : [];
     // Keep only records where tenant was active during the month (start_date <= monEnd or null)
     histUnits = histUnits.filter(function(h){ return !h.start_date || h.start_date <= monEnd; });
@@ -87,9 +87,10 @@ async function loadMonthly(btn) {
     histUnits = Object.keys(_histMap).map(function(k){ return _histMap[k]; });
     var pendingMoves = pendingMovesRes ? (pendingMovesRes.data||[]) : [];
 
-    // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار
+    // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار، وأخرج الشاغرين من القائمة الرئيسية
     var monYMcheck = (mon||'').slice(0,7);
-    units = units.filter(function(u){
+    var units = allUnits.filter(function(u){
+      if(u.is_vacant) return false;
       var startYM = (u.start_date||'').slice(0,7);
       return !startYM || startYM <= monYMcheck;
     });
@@ -127,7 +128,9 @@ async function loadMonthly(btn) {
         // لو في مستأجر قديم ومستأجر جديد في نفس الشهر — أضف السابق كصف إضافي
         // بس بشرط إن ما اتضافش قبل كده
         var alreadyAdded = units.some(function(u){ return u._isFormerTenant && u.id === h.unit_id; });
-        if(!alreadyAdded && currentStartYM <= monYMcheck) {
+        var currentUnit = units.find(function(u){ return u.id === h.unit_id && !u._isFormerTenant; });
+        var samePersonShown = currentUnit && currentUnit.tenant_name && currentUnit.tenant_name === h.tenant_name;
+        if(!alreadyAdded && !samePersonShown && currentStartYM <= monYMcheck) {
           formerUnit.id = h.unit_id + '_f';
           units.push(formerUnit);
         }
@@ -180,19 +183,28 @@ async function loadMonthly(btn) {
 
     // ── دفعات لوحدات شاغرة (مستأجر سابق عليه متأخرات) ──
     // الوحدة الشاغرة مش موجودة في units — نضيفها كصف خاص
+    // Build unit_id → {apartment, room, tenant_name} map from ALL units (including vacant) for resolving null apt/room on payments
+    var unitIdToAptRoom = {};
+    allUnits.forEach(function(u){ if(u.id) unitIdToAptRoom[String(u.id)] = {apartment: String(u.apartment||''), room: String(u.room||''), tenant_name: u.tenant_name||null}; });
     var coveredRooms = {};
     units.forEach(function(u){ coveredRooms[String(u.apartment)+'-'+String(u.room)] = true; });
     pays.forEach(function(p){
-      if(!p.apartment || !p.room) return;
-      var _rk = String(p.apartment)+'-'+String(p.room);
+      // If payment is missing apartment/room, try to resolve via unit_id
+      var apt = p.apartment, rm = p.room;
+      if((!apt || !rm) && p.unit_id) {
+        var resolved = unitIdToAptRoom[String(p.unit_id)];
+        if(resolved) { apt = resolved.apartment; rm = resolved.room; }
+      }
+      if(!apt || !rm) return;
+      var _rk = String(apt)+'-'+String(rm);
       if(coveredRooms[_rk]) return; // already in report
       coveredRooms[_rk] = true;
       units.push({
         id: p.unit_id || _rk,
-        apartment: String(p.apartment),
-        room: String(p.room),
+        apartment: String(apt),
+        room: String(rm),
         monthly_rent: 0,
-        tenant_name: p.tenant_name || null,
+        tenant_name: p.tenant_name || (unitIdToAptRoom[String(p.unit_id)] && unitIdToAptRoom[String(p.unit_id)].tenant_name) || null,
         is_vacant: true,
         _isVacantPaid: true,
         start_date: null
