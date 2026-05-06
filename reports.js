@@ -73,7 +73,6 @@ async function loadMonthly(btn) {
     ]);
     var allUnits     = unitsRes.data||[];
     var histUnits    = (histRes && histRes.data) ? histRes.data : [];
- claude/rental-payment-tracker-OYCRU
     // Keep only records where tenant was active during the month (start_date <= monEnd or null)
     histUnits = histUnits.filter(function(h){ return !h.start_date || h.start_date <= monEnd; });
     // Dedup by unit_id: keep the record with the most recent end_date (tenant closest to this month)
@@ -84,7 +83,6 @@ async function loadMonthly(btn) {
     });
     histUnits = Object.keys(_histMap).map(function(k){ return _histMap[k]; });
 
- main
     var pendingMoves = pendingMovesRes ? (pendingMovesRes.data||[]) : [];
 
     // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار، وأخرج الشاغرين من القائمة الرئيسية
@@ -124,7 +122,6 @@ async function loadMonthly(btn) {
           var idx = units.findIndex(function(u){ return u.id === h.unit_id && !u._isFormerTenant; });
           if(idx > -1) units[idx] = formerUnit;
         }
-claude/rental-payment-tracker-OYCRU
         // لو في مستأجر قديم ومستأجر جديد في نفس الشهر — أضف السابق كصف إضافي
         // بس بشرط إن ما اتضافش قبل كده
         var alreadyAdded = units.some(function(u){ return u._isFormerTenant && u.id === h.unit_id; });
@@ -133,16 +130,14 @@ claude/rental-payment-tracker-OYCRU
         if(!alreadyAdded && !samePersonShown && currentStartYM <= monYMcheck) {
           formerUnit.id = h.unit_id + '_f';
           units.push(formerUnit);
-
         // لو المستأجر الحالي دخل في نفس الشهر أو قبله
         // والسابق غادر في نفس الشهر — أضفه كصف منفصل (مثلاً دخل وخرج في نفس الشهر)
-        else {
-          var alreadyAdded = units.some(function(u){ return u._isFormerTenant && String(u.apartment)+'-'+String(u.room) === String(h.apartment)+'-'+String(h.room); });
-          if(!alreadyAdded) {
+        } else {
+          var alreadyAdded2 = units.some(function(u){ return u._isFormerTenant && String(u.apartment)+'-'+String(u.room) === String(h.apartment)+'-'+String(h.room); });
+          if(!alreadyAdded2) {
             formerUnit.id = h.unit_id + '_f_' + String(h.end_date||'').slice(0,10);
             units.push(formerUnit);
           }
- main
         }
       }
     });
