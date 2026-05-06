@@ -87,11 +87,11 @@ async function autoFillRent() {
         .select('id,monthly_rent,rent1,rent2,tenant_name,tenant_name2,phone,phone2,language,start_date')
         .eq('apartment', String(apt)).eq('room', room).maybeSingle();
 
-      // If not found as string, try trimming whitespace (handles copy-paste with spaces)
-      if(!unit && room.trim() !== room) {
+      // If not found as string, try as integer
+      if(!unit && !isNaN(room)) {
         var { data: unit2 } = await sb.from('units')
           .select('id,monthly_rent,rent1,rent2,tenant_name,tenant_name2,phone,phone2,language,start_date')
-          .eq('apartment', String(apt).trim()).eq('room', room.trim()).maybeSingle();
+          .eq('apartment', String(apt)).eq('room', String(room)).maybeSingle();
         unit = unit2;
       }
       if(!unit) { console.log('autoFillRent: unit not found apt='+apt+' room='+room); return; }

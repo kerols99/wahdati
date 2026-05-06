@@ -32,13 +32,11 @@ function _pickDepositForReport(depRows, monYM) {
 // ══════════════════════════════════════════════════════
 
 async function loadMonthly(btn) {
-  // Auto-fill current month if empty
   var rpmEl = document.getElementById('rpm');
-  if(rpmEl && !rpmEl.value) {
-    var now = new Date();
-    rpmEl.value = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  }
-  var mon = rpmEl ? rpmEl.value : '';
+  // دايماً خد الشهر من getActiveMonth
+  var mon = window.getActiveMonth ? getActiveMonth() : '';
+  if(!mon && rpmEl) mon = rpmEl.value;
+  if(rpmEl) rpmEl.value = mon;
   if(!mon){toast(LANG==='ar'?'اختر الشهر':'Choose month','err');return;}
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   try{
@@ -72,10 +70,10 @@ async function loadMonthly(btn) {
       sb.from('unit_history').select('unit_id,apartment,room,tenant_name,tenant_name2,monthly_rent,deposit,start_date,end_date,snapshot_type')
         .gte('end_date', monStart)
         .lte('end_date', monNextMonthEnd)
-
     ]);
     var allUnits     = unitsRes.data||[];
     var histUnits    = (histRes && histRes.data) ? histRes.data : [];
+ claude/rental-payment-tracker-OYCRU
     // Keep only records where tenant was active during the month (start_date <= monEnd or null)
     histUnits = histUnits.filter(function(h){ return !h.start_date || h.start_date <= monEnd; });
     // Dedup by unit_id: keep the record with the most recent end_date (tenant closest to this month)
@@ -85,6 +83,8 @@ async function loadMonthly(btn) {
       if(!prev || h.end_date > prev.end_date) _histMap[h.unit_id] = h;
     });
     histUnits = Object.keys(_histMap).map(function(k){ return _histMap[k]; });
+
+ main
     var pendingMoves = pendingMovesRes ? (pendingMovesRes.data||[]) : [];
 
     // فلتر: أخرج المستأجرين اللي دخلوا بعد الشهر المختار، وأخرج الشاغرين من القائمة الرئيسية
@@ -114,17 +114,17 @@ async function loadMonthly(btn) {
       };
 
       if(!existingIds.has(h.unit_id)) {
-        // الوحدة فاضية دلوقتي أو مستأجر تاني — أضف السابق
+        // الوحدة فاضية دلوقتي — أضف السابق
         units.push(formerUnit);
         existingIds.add(h.unit_id);
       } else {
-        // في مستأجر حالي — شوف هل دخل بعد الشهر المختار
         var currentStartYM = currentStartMap[h.unit_id] || '';
         if(currentStartYM > monYMcheck) {
           // المستأجر الحالي دخل بعد الشهر — استبدله بالسابق
           var idx = units.findIndex(function(u){ return u.id === h.unit_id && !u._isFormerTenant; });
           if(idx > -1) units[idx] = formerUnit;
         }
+claude/rental-payment-tracker-OYCRU
         // لو في مستأجر قديم ومستأجر جديد في نفس الشهر — أضف السابق كصف إضافي
         // بس بشرط إن ما اتضافش قبل كده
         var alreadyAdded = units.some(function(u){ return u._isFormerTenant && u.id === h.unit_id; });
@@ -133,6 +133,16 @@ async function loadMonthly(btn) {
         if(!alreadyAdded && !samePersonShown && currentStartYM <= monYMcheck) {
           formerUnit.id = h.unit_id + '_f';
           units.push(formerUnit);
+
+        // لو المستأجر الحالي دخل في نفس الشهر أو قبله
+        // والسابق غادر في نفس الشهر — أضفه كصف منفصل (مثلاً دخل وخرج في نفس الشهر)
+        else {
+          var alreadyAdded = units.some(function(u){ return u._isFormerTenant && String(u.apartment)+'-'+String(u.room) === String(h.apartment)+'-'+String(h.room); });
+          if(!alreadyAdded) {
+            formerUnit.id = h.unit_id + '_f_' + String(h.end_date||'').slice(0,10);
+            units.push(formerUnit);
+          }
+ main
         }
       }
     });
@@ -258,6 +268,7 @@ async function loadMonthly(btn) {
     // apt.coll = rent + deposit (what was actually received)
     var apts = {};
     units.forEach(function(u){
+      if(!u || !u.apartment) return; // skip invalid units
       var apt = String(u.apartment);
       if(!apts[apt]) apts[apt]={units:[],rent:0,rentColl:0,coll:0,deps:0};
       apts[apt].units.push({...u, _isNew: isNewForMonth(u.start_date||'')});
@@ -384,7 +395,7 @@ async function loadMonthly(btn) {
           +'<td style="padding:6px 8px;font-weight:700;font-size:.75rem;color:var(--accent)">'+aptDeps+'</td>'
           +'<td style="padding:6px 8px;font-weight:700;font-size:.75rem;color:var(--green)">'+aptRentColl+'</td>'
           +'<td style="padding:6px 8px;font-weight:800;font-size:.75rem;color:var(--green);border-bottom:none">'+(aptDeps>0?(aptRentColl+aptDeps):'—')+'</td>'
-          +'<td style="padding:6px 8px;font-weight:700;font-size:.75rem;color:var(--red)">'+Math.max(0,g.rent-aptRentColl)+'</td>'
+          +'<td style="padding:6px 8px;font-weight:700;font-size:.75rem;color:var(--red)">'+(g.rent-aptRentColl)+'</td>'
           +'<td></td></tr></tfoot>'
           +'</table></div></div>';
       });

@@ -103,8 +103,8 @@ async function addDepartureModal(){
         <div style="font-size:.72rem;color:var(--muted);font-weight:700;margin-bottom:8px">👤 ${LANG==='ar'?'بيانات المغادر':'Tenant Info'}</div>
         <div class="fld" style="margin-bottom:8px"><label style="font-size:.75rem;color:var(--muted)">${LANG==='ar'?'الاسم':'Name'}</label><input id="me-name" class="inp" placeholder="${LANG==='ar'?'الاسم':'Name'}"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div class="fld"><label style="font-size:.75rem;color:var(--muted)">${LANG==='ar'?'الشقة':'Apt'}</label><input id="me-apt" class="inp" type="text" inputmode="numeric" placeholder="101"></div>
-          <div class="fld"><label style="font-size:.75rem;color:var(--muted)">${LANG==='ar'?'الغرفة':'Room'}</label><input id="me-room" class="inp" type="text" inputmode="numeric" placeholder="1"></div>
+          <div class="fld"><label style="font-size:.75rem;color:var(--muted)">${LANG==='ar'?'الشقة':'Apt'}</label><input id="me-apt" class="inp" type="number" placeholder="101"></div>
+          <div class="fld"><label style="font-size:.75rem;color:var(--muted)">${LANG==='ar'?'الغرفة':'Room'}</label><input id="me-room" class="inp" type="number" placeholder="1"></div>
         </div>
       </div>
 
@@ -399,7 +399,7 @@ async function saveArrivalEntry(btn){
           rent2: old.rent2,
           deposit: old.deposit,
           persons_count: old.persons_count,
-          start_date: old.start_date || (old.created_at ? old.created_at.slice(0,10) : null),
+          start_date: old.start_date,
           end_date: date || new Date().toISOString().split('T')[0],
           snapshot_type: 'departure',
           recorded_by: (ME||{}).id || null
@@ -412,7 +412,7 @@ async function saveArrivalEntry(btn){
         tenant_name2: null,
         phone: phone||null,
         phone2: null,
-        monthly_rent: rent > 0 ? rent : old.monthly_rent,
+        monthly_rent: rent||old.monthly_rent,
         rent1: rent||0,
         rent2: 0,
         deposit: deposit||0,
