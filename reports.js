@@ -26,11 +26,11 @@ function _pickDepositForReport(depRows, monYM) {
 // ══════════════════════════════════════════════════════
 
 async function loadMonthly(btn) {
-  // استخدام الشهر المختار من الـ selector
   var rpmEl = document.getElementById('rpm');
-  var activeYM = window.getActiveMonth ? getActiveMonth() : '';
-  if(rpmEl) rpmEl.value = activeYM;
-  var mon = activeYM || (rpmEl ? rpmEl.value : '');
+  // دايماً خد الشهر من getActiveMonth
+  var mon = window.getActiveMonth ? getActiveMonth() : '';
+  if(!mon && rpmEl) mon = rpmEl.value;
+  if(rpmEl) rpmEl.value = mon;
   if(!mon){toast(LANG==='ar'?'اختر الشهر':'Choose month','err');return;}
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   try{
@@ -86,28 +86,6 @@ async function loadMonthly(btn) {
       return !startYM || startYM <= monYMcheck;
     });
 
-    // أضف الوحدات الشاغرة اللي فيها دفعات في الشهر ده
-    // (مستأجر غادر وبياناته اتمسحت بس دفعته موجودة)
-    var existingAptRooms = new Set(units.map(function(u){ return String(u.apartment)+'-'+String(u.room); }));
-    Object.keys(paidMapByRoom).forEach(function(key){
-      if(!existingAptRooms.has(key) && (paidMapByRoom[key]||0) > 0) {
-        var parts = key.split('-');
-        var apt = parts[0], room = parts[1];
-        // جيب بيانات الوحدة من الـ pays
-        var matchPay = pays.find(function(p){ return String(p.apartment||'')+'-'+String(p.room||'') === key; });
-        units.push({
-          id: matchPay ? String(matchPay.unit_id||key) : key,
-          apartment: apt, room: room,
-          monthly_rent: paidMapByRoom[key],
-          tenant_name: matchPay ? (matchPay.notes||'—') : '—',
-          is_vacant: true,
-          start_date: null, deposit: 0,
-          _isFormerTenant: true, _endDate: monEnd
-        });
-        existingAptRooms.add(key);
-      }
-    });
-
     // أضف المستأجرين السابقين من unit_history
     // لو المستأجر الحالي دخل بعد الشهر → استبدله بالسابق
     var existingIds = new Set(units.map(function(u){ return u.id; }));
@@ -127,23 +105,24 @@ async function loadMonthly(btn) {
       };
 
       if(!existingIds.has(h.unit_id)) {
-        // الوحدة فاضية دلوقتي أو مستأجر تاني — أضف السابق
+        // الوحدة فاضية دلوقتي — أضف السابق
         units.push(formerUnit);
         existingIds.add(h.unit_id);
       } else {
-        // في مستأجر حالي — شوف هل دخل بعد الشهر المختار
         var currentStartYM = currentStartMap[h.unit_id] || '';
         if(currentStartYM > monYMcheck) {
           // المستأجر الحالي دخل بعد الشهر — استبدله بالسابق
           var idx = units.findIndex(function(u){ return u.id === h.unit_id && !u._isFormerTenant; });
           if(idx > -1) units[idx] = formerUnit;
         }
-        // لو في مستأجر قديم ومستأجر جديد في نفس الشهر — أضف السابق كصف إضافي
-        // بس بشرط إن ما اتضافش قبل كده
-        var alreadyAdded = units.some(function(u){ return u._isFormerTenant && u.id === h.unit_id; });
-        if(!alreadyAdded && currentStartYM <= monYMcheck) {
-          formerUnit.id = h.unit_id + '_f';
-          units.push(formerUnit);
+        // لو المستأجر الحالي دخل في نفس الشهر أو قبله
+        // والسابق غادر في نفس الشهر — أضفه كصف منفصل (مثلاً دخل وخرج في نفس الشهر)
+        else {
+          var alreadyAdded = units.some(function(u){ return u._isFormerTenant && String(u.apartment)+'-'+String(u.room) === String(h.apartment)+'-'+String(h.room); });
+          if(!alreadyAdded) {
+            formerUnit.id = h.unit_id + '_f_' + String(h.end_date||'').slice(0,10);
+            units.push(formerUnit);
+          }
         }
       }
     });
@@ -239,6 +218,7 @@ async function loadMonthly(btn) {
     // apt.coll = rent + deposit (what was actually received)
     var apts = {};
     units.forEach(function(u){
+      if(!u || !u.apartment) return; // skip invalid units
       var apt = String(u.apartment);
       if(!apts[apt]) apts[apt]={units:[],rent:0,rentColl:0,coll:0,deps:0};
       apts[apt].units.push({...u, _isNew: isNewForMonth(u.start_date||'')});
