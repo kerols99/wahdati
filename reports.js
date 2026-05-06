@@ -86,6 +86,28 @@ async function loadMonthly(btn) {
       return !startYM || startYM <= monYMcheck;
     });
 
+    // أضف الوحدات الشاغرة اللي فيها دفعات في الشهر ده
+    // (مستأجر غادر وبياناته اتمسحت بس دفعته موجودة)
+    var existingAptRooms = new Set(units.map(function(u){ return String(u.apartment)+'-'+String(u.room); }));
+    Object.keys(paidMapByRoom).forEach(function(key){
+      if(!existingAptRooms.has(key) && (paidMapByRoom[key]||0) > 0) {
+        var parts = key.split('-');
+        var apt = parts[0], room = parts[1];
+        // جيب بيانات الوحدة من الـ pays
+        var matchPay = pays.find(function(p){ return String(p.apartment||'')+'-'+String(p.room||'') === key; });
+        units.push({
+          id: matchPay ? String(matchPay.unit_id||key) : key,
+          apartment: apt, room: room,
+          monthly_rent: paidMapByRoom[key],
+          tenant_name: matchPay ? (matchPay.notes||'—') : '—',
+          is_vacant: true,
+          start_date: null, deposit: 0,
+          _isFormerTenant: true, _endDate: monEnd
+        });
+        existingAptRooms.add(key);
+      }
+    });
+
     // أضف المستأجرين السابقين من unit_history
     // لو المستأجر الحالي دخل بعد الشهر → استبدله بالسابق
     var existingIds = new Set(units.map(function(u){ return u.id; }));
