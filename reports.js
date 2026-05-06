@@ -33,10 +33,9 @@ function _pickDepositForReport(depRows, monYM) {
 
 async function loadMonthly(btn) {
   var rpmEl = document.getElementById('rpm');
-  // دايماً خد الشهر من getActiveMonth
-  var mon = window.getActiveMonth ? getActiveMonth() : '';
-  if(!mon && rpmEl) mon = rpmEl.value;
-  if(rpmEl) rpmEl.value = mon;
+  // خد الشهر من الـ input الأول، لو فاضي خد من getActiveMonth
+  var mon = (rpmEl && rpmEl.value) ? rpmEl.value
+            : (window.getActiveMonth ? getActiveMonth() : '');
   if(!mon){toast(LANG==='ar'?'اختر الشهر':'Choose month','err');return;}
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
   try{
