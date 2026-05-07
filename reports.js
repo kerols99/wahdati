@@ -257,7 +257,8 @@ async function loadMonthly(btn) {
     units.forEach(function(u){
       totalRent     += u.monthly_rent||0;
       var _pk1=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0); totalRentColl += _pk1;
-      if(!u._isFormerTenant) totalDeps += depMap[u.id]||0;  // deposit: current tenants only
+      var _depLookupId2 = u._isFormerTenant ? (String(u.id).split('_f')[0]) : u.id;
+      totalDeps += _pickDepositForReport(depRawMap[_depLookupId2]||[], monYM);
     });
     // المُرتجعات في هذا الشهر — query منفصلة بـ refund_date
     var totalRefunds = refundedDeps.reduce(function(s,d){ return s+(Number(d.refund_amount)||0); }, 0);
@@ -277,7 +278,8 @@ async function loadMonthly(btn) {
       apts[apt].units.push({...u, _isNew: isNewForMonth(u.start_date||'')});
       apts[apt].rent     += u.monthly_rent||0;
       var _pk3=paidMap[String(u.id)]!==undefined?paidMap[String(u.id)]:(paidMapByRoom[String(u.apartment)+'-'+String(u.room)]||0); apts[apt].rentColl += _pk3;
-      var _dep3 = u._isFormerTenant ? 0 : (depMap[u.id]||0);
+      var _depLookupId3 = u._isFormerTenant ? (String(u.id).split('_f')[0]) : u.id;
+      var _dep3 = _pickDepositForReport(depRawMap[_depLookupId3]||[], monYM);
       apts[apt].coll += _pk3 + _dep3;
       apts[apt].deps += _dep3;
     });
