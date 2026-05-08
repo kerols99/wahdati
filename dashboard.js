@@ -911,11 +911,35 @@ async function activateReservedUnits() {
     // Auto-confirm pending bookings (arrive) whose date has arrived
     var { data: pendingArrivals } = await sb.from('moves')
       .select('*').eq('type','arrive').eq('status','pending')
-      .or('new_start_date.lte.'+today2+',and(new_start_date.is.null,move_date.lte.'+today2+')');
+      .lte('move_date', today2);
     if(pendingArrivals && pendingArrivals.length) {
       for(var j=0; j<pendingArrivals.length; j++) {
         var mv = pendingArrivals[j];
         if(!mv.unit_id) continue;
+
+        // احفظ snapshot للمستأجر الحالي قبل الكتابة عليه
+        var { data: currentUnit } = await sb.from('units').select('*').eq('id', mv.unit_id).single();
+        if(currentUnit && currentUnit.tenant_name) {
+          await sb.from('unit_history').insert({
+            unit_id:       currentUnit.id,
+            apartment:     currentUnit.apartment,
+            room:          currentUnit.room,
+            tenant_name:   currentUnit.tenant_name,
+            tenant_name2:  currentUnit.tenant_name2 || null,
+            phone:         currentUnit.phone || null,
+            phone2:        currentUnit.phone2 || null,
+            monthly_rent:  parseFloat(currentUnit.monthly_rent||0),
+            rent1:         parseFloat(currentUnit.rent1||0),
+            rent2:         parseFloat(currentUnit.rent2||0),
+            deposit:       parseFloat(currentUnit.deposit||0),
+            persons_count: currentUnit.persons_count || 1,
+            start_date:    currentUnit.start_date || null,
+            end_date:      mv.move_date || new Date().toISOString().slice(0,10),
+            snapshot_type: 'departure',
+            recorded_by:   (ME||{}).id || null
+          });
+        }
+
         // Update unit with new tenant
         await sb.from('units').update({
           tenant_name: mv.new_tenant_name || mv.tenant_name,
@@ -935,6 +959,25 @@ async function activateReservedUnits() {
         await sb.from('deposits').delete()
           .eq('unit_id', mv.unit_id)
           .like('notes','%عربون حجز%');
+        // سجّل التأمين في deposits لو موجود في الحجز
+        if(mv.new_deposit && parseFloat(mv.new_deposit) > 0) {
+          var { data: existingDep } = await sb.from('deposits')
+            .select('id').eq('unit_id', mv.unit_id)
+            .eq('tenant_name', mv.new_tenant_name || mv.tenant_name)
+            .eq('status','held').maybeSingle();
+          if(!existingDep) {
+            await sb.from('deposits').insert({
+              unit_id:               mv.unit_id,
+              apartment:             String(mv.apartment||''),
+              room:                  String(mv.room||''),
+              tenant_name:           mv.new_tenant_name || mv.tenant_name,
+              amount:                parseFloat(mv.new_deposit),
+              status:                'held',
+              deposit_received_date: mv.new_start_date || mv.move_date,
+              notes:                 'مسجّل عند تأكيد الحجز'
+            });
+          }
+        }
       }
       toast('✅ تم تأكيد '+pendingArrivals.length+' حجز تلقائياً', 'ok');
     }
