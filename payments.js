@@ -503,7 +503,7 @@ function setPayTenant(num, btnOrApt, roomOrUndef, amtOrUndef, nameOrUndef, evt) 
       }
     }
     // ارفع الـ lock بعد ما اتضبط كل حاجة
-    setTimeout(function(){ window._payTenantLocked = false; }, 600);
+    setTimeout(function(){ window._payTenantLocked = false; }, 3000);
   }, 50);
 }
 

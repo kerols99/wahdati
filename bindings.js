@@ -83,14 +83,14 @@
       var el = e.target;
       if(el.id === 'search-inp') return debouncedSearch();
       if(el.dataset.input === 'calcTotalRent' && window.calcTotalRent) return window.calcTotalRent();
-      if(el.dataset.input === 'autoFillRent' && window.autoFillRent) return window.autoFillRent();
+      if(el.dataset.input === 'autoFillRent' && window.autoFillRent) { window._payTenantLocked = false; return window.autoFillRent(); }
       if(el.dataset.input === 'autoFillDepDate' && window.autoFillDepDate) return window.autoFillDepDate();
       if(el.dataset.input === 'calcOwnerBalance' && window.calcOwnerBalance) return window.calcOwnerBalance();
     });
 
     document.addEventListener('blur', function(e){
       var el = e.target;
-      if(el.dataset.blur === 'autoFillRent' && window.autoFillRent) window.autoFillRent();
+      if(el.dataset.blur === 'autoFillRent' && window.autoFillRent) { window._payTenantLocked = false; window.autoFillRent(); }
     }, true);
 
     document.addEventListener('change', function(e){
