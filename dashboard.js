@@ -848,9 +848,12 @@ async function activateReservedUnits() {
     // بس لو عندنا pending departures نشغّل دايماً
     var forceRun = false;
     try {
-      var { count } = await sb.from('moves').select('id',{count:'exact',head:true})
+      // شوف لو في مغادرات أو حجوزات pending متأخرة
+      var { count: depCount } = await sb.from('moves').select('id',{count:'exact',head:true})
         .eq('type','depart').eq('status','pending').lte('move_date', today0);
-      if(count > 0) forceRun = true;
+      var { count: arrCount } = await sb.from('moves').select('id',{count:'exact',head:true})
+        .eq('type','arrive').eq('status','pending').lte('move_date', today0);
+      if((depCount||0) > 0 || (arrCount||0) > 0) forceRun = true;
     } catch(e) {}
     if(!forceRun && lastRun === today0) { window._activatingUnits = false; return; }
     localStorage.setItem('_lastActivationRun', today0);
