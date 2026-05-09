@@ -521,7 +521,7 @@ async function saveMoveEntry(type, btn){
       status: 'pending',
       created_by: (ME||{}).id||null
     };
-    var ins = await sb.from('moves').insert(payload);
+    var ins = await sb.from('moves').insert(payload).select('id');
     if(ins.error) throw ins.error;
 
     // لو التاريخ في الماضي أو النهارده — نفّذ فوراً
@@ -635,7 +635,7 @@ async function quickMarkDepartureFromUnit(unit){
         notes: LANG==='ar' ? 'مغادر '+dateVal : 'Leaving '+dateVal,
         created_by: (ME||{}).id || null
       };
-      var ins = await sb.from('moves').insert(payload);
+      var ins = await sb.from('moves').insert(payload).select('id');
       if(ins.error) throw ins.error;
 
       // لو التاريخ في الماضي أو النهارده — نفّذ فوراً
