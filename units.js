@@ -521,7 +521,7 @@ var now = new Date();
     + '<div><span style="color:var(--muted)">'+(LANG==='ar'?'حالة النافذة:':'Window:')+'</span> <span style="font-weight:600">'+(unit.window_status||'—')+'</span></div>'
     + '</div>'
     + depHTML
-    + '<button onclick="showDiscountModal(unit.id,unit.apartment,unit.room,unit.monthly_rent||0)" style="margin-bottom:8px;width:100%;padding:10px;background:var(--amber)22;border:1px solid var(--amber)55;border-radius:10px;color:var(--amber);font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit">🏷️ '+(LANG==='ar'?'خصم مؤقت':'Temporary Discount')+(discountAmt>0?' ✅':'')+'</button>'
+    + '<button onclick="showDiscountModal('+unit.id+',\''+String(unit.apartment)+'\',\''+String(unit.room)+'\','+(unit.monthly_rent||0)+')" style="margin-bottom:8px;width:100%;padding:10px;background:var(--amber)22;border:1px solid var(--amber)55;border-radius:10px;color:var(--amber);font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit">🏷️ '+(LANG==='ar'?'خصم مؤقت':'Temporary Discount')+(discountAmt>0?' ✅':'')+'</button>'
     + (scheduledDepart?'<div style="margin-top:8px;padding:8px 10px;border:1px solid var(--amber);border-radius:10px;background:var(--amber)11;font-size:.78rem;color:var(--amber)">📤 '+(LANG==='ar'?'مغادرة مسجلة: ':'Scheduled departure: ') + (scheduledDepart.move_date?new Date(scheduledDepart.move_date).toLocaleDateString(LANG==='ar'?'ar-EG':'en-GB'):'—') + '</div>':'')
     + (unit.notes?'<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.75rem;color:var(--muted)">📝 '+unit.notes+'</div>':'')
     + '</div>'
