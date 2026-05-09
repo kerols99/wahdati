@@ -26,15 +26,23 @@ async function loadHome(btn, force) {
     var { data: pays } = await sb.from('rent_payments').select('unit_id,amount').like('payment_month', ym + '%');
     if(!pays) pays=[];
 
+    // جيب كل الخصومات النشطة دلوقتي دفعة واحدة
+    var _todayLocal = (function(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+    var { data: activeDiscounts } = await sb.from('unit_discounts').select('unit_id,discount_amount')
+      .lte('start_date', _todayLocal).gte('end_date', _todayLocal);
+    var discountMap = {};
+    (activeDiscounts||[]).forEach(function(d){ discountMap[d.unit_id] = (d.discount_amount||0); });
+
     var paidMap = {};
     pays.forEach(p=>{ paidMap[p.unit_id] = (paidMap[p.unit_id]||0) + p.amount; });
+    window._discountMapCache = discountMap;
 
     var paid=0, partial=0, unpaid=0, remaining=0, lateUnits=[];
     // Current month as YYYY-MM for comparison
     var ymPrefix = ym; // e.g. "2026-03"
     units.forEach(u=>{
       var got  = paidMap[u.id]||0;
-      var rent = u.monthly_rent || 0;
+      var rent = Math.max(0, (u.monthly_rent||0) - (discountMap[u.id]||0));
 
       // NEW THIS MONTH: unit start_date is in current month
       // They only paid deposit - don't count in unpaid/partial
@@ -48,8 +56,8 @@ async function loadHome(btn, force) {
       }
 
       if(got >= rent && rent > 0) paid++;
-      else if(got > 0) { partial++; remaining += rent - got; lateUnits.push({...u,got,rem:rent-got,status:'partial'}); }
-      else { unpaid++; remaining += rent; lateUnits.push({...u,got:0,rem:rent,status:'unpaid'}); }
+      else if(got > 0) { partial++; remaining += rent - got; lateUnits.push({...u,got,rem:rent-got,monthly_rent:rent,status:'partial'}); }
+      else { unpaid++; remaining += rent; lateUnits.push({...u,got:0,rem:rent,monthly_rent:rent,status:'unpaid'}); }
     });
 
     document.getElementById('sp').textContent  = paid;
@@ -277,6 +285,8 @@ function renderUnits(units, paidMap) {
       badgeBg='var(--red-bg)'; stripeColor='var(--red)';
     }
 
+    var _disc = window._discountMapCache ? (window._discountMapCache[u.id]||0) : 0;
+    var rent = Math.max(0, (u.monthly_rent||0) - _disc);
     var rem = (!u.is_vacant && paid < rent) ? rent - paid : 0;
     var remHtml = rem > 0
       ? '<div style="font-size:.68rem;color:'+statusColor+';margin-top:2px;font-weight:700">'+rem.toLocaleString()+' متبقي</div>'
